@@ -23,19 +23,40 @@ func (xhr XHR) Encode(payload packet.Payload) []byte {
 }
 
 func (xhr XHR) encodePacket(packet packet.Packet) []byte {
-	var data string
-
-	packetType := strconv.Itoa(int(packet.Type))
+	var data []byte
 
 	if packet.Binary {
-		data = "b" + packetType + base64.StdEncoding.EncodeToString(packet.Data)
+		data = xhr.encodeBinaryData(packet)
 	} else {
-		data = packetType + string(packet.Data)
+		data = xhr.encodeStringData(packet)
 	}
+
+	var buffer bytes.Buffer
 
 	length := len(data)
 
-	result := strconv.Itoa(length) + ":" + data
+	buffer.WriteString(strconv.Itoa(length))
+	buffer.WriteRune(':')
+	buffer.Write(data)
 
-	return []byte(result)
+	return buffer.Bytes()
+}
+
+func (xhr XHR) encodeStringData(packet packet.Packet) []byte {
+	var buffer bytes.Buffer
+
+	buffer.WriteRune(rune(packet.Type))
+	buffer.Write(packet.Data)
+
+	return buffer.Bytes()
+}
+
+func (xhr XHR) encodeBinaryData(packet packet.Packet) []byte {
+	var buffer bytes.Buffer
+
+	buffer.WriteRune('b')
+	buffer.WriteRune(rune(packet.Type))
+	buffer.WriteString(base64.StdEncoding.EncodeToString(packet.Data))
+
+	return buffer.Bytes()
 }
