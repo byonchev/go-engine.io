@@ -20,43 +20,42 @@ type XHR struct {
 	readLock  sync.Mutex
 	writeLock sync.Mutex
 
-	sendChannel    chan packet.Packet
-	receiveChannel chan packet.Packet
+	sendChannel    <-chan packet.Packet
+	receiveChannel chan<- packet.Packet
 }
 
 // NewXHR creates new XHR transport
-func NewXHR() *XHR {
+func NewXHR(sendChannel <-chan packet.Packet, receiveChannel chan<- packet.Packet) *XHR {
 	return &XHR{
 		codec:          codec.XHR{},
-		sendChannel:    make(chan packet.Packet),
-		receiveChannel: make(chan packet.Packet),
+		sendChannel:    sendChannel,
+		receiveChannel: receiveChannel,
 	}
 }
 
 // HandleRequest handles HTTP polling requests
 func (xhr *XHR) HandleRequest(writer http.ResponseWriter, request *http.Request) {
-	if request.Method == "POST" {
-		xhr.read(request.Body)
-	} else {
+	method := request.Method
+
+	switch method {
+	case "GET":
 		xhr.write(writer)
+	case "POST":
+		xhr.read(request.Body)
+	default:
+		writer.WriteHeader(http.StatusMethodNotAllowed)
 	}
-}
-
-// Send enqueues packet for sending
-func (xhr *XHR) Send(packet packet.Packet) {
-	go func() { xhr.sendChannel <- packet }()
-}
-
-// Receive blocks until a packet is received
-func (xhr *XHR) Receive() packet.Packet {
-	return <-xhr.receiveChannel
 }
 
 func (xhr *XHR) read(reader io.Reader) {
 	xhr.readLock.Lock()
 	defer xhr.readLock.Unlock()
 
-	data, _ := ioutil.ReadAll(reader)
+	data, err := ioutil.ReadAll(reader)
+
+	if err != nil {
+		return
+	}
 
 	payload, err := xhr.codec.Decode(data)
 
