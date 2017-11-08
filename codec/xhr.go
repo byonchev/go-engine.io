@@ -3,6 +3,7 @@ package codec
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"strconv"
 
 	"../packet"
@@ -11,7 +12,7 @@ import (
 // XHR is a codec for encoding messages for standard long polling
 type XHR struct{}
 
-// Encode encodes payload
+// Encode encodes payload of packets for single sending.
 func (codec XHR) Encode(payload packet.Payload) []byte {
 	var buffer bytes.Buffer
 
@@ -22,11 +23,10 @@ func (codec XHR) Encode(payload packet.Payload) []byte {
 	return buffer.Bytes()
 }
 
-// TODO: Error handling
-func (codec XHR) Decode(encoded []byte) packet.Payload {
-	var payload packet.Payload
-
+// Decode decodes payload of packets
+func (codec XHR) Decode(encoded []byte) (packet.Payload, error) {
 	var buffer bytes.Buffer
+	var payload packet.Payload
 
 	for i := 0; i < len(encoded); i++ {
 		ch := rune(encoded[i])
@@ -36,18 +36,29 @@ func (codec XHR) Decode(encoded []byte) packet.Payload {
 			continue
 		}
 
-		length, _ := strconv.Atoi(buffer.String())
+		length, err := strconv.Atoi(buffer.String())
+
+		if err != nil {
+			return nil, errors.New("invalid packet length")
+		}
+
 		start := i + 1
 		end := start + length
 
-		payload = append(payload, codec.decodePacket(encoded[start:end]))
+		packet, err := codec.decodePacket(encoded[start:end])
+
+		if err != nil {
+			return nil, err
+		}
+
+		payload = append(payload, packet)
 
 		buffer.Reset()
 
 		i = end - 1
 	}
 
-	return payload
+	return payload, nil
 }
 
 func (codec XHR) encodePacket(packet packet.Packet) []byte {
@@ -89,7 +100,7 @@ func (codec XHR) encodeBinaryData(packet packet.Packet) []byte {
 	return buffer.Bytes()
 }
 
-func (codec XHR) decodePacket(data []byte) packet.Packet {
+func (codec XHR) decodePacket(data []byte) (packet.Packet, error) {
 	binary := (data[0] == 'b')
 
 	if binary {
@@ -99,10 +110,16 @@ func (codec XHR) decodePacket(data []byte) packet.Packet {
 	return codec.decodeStringData(data)
 }
 
-func (codec XHR) decodeStringData(data []byte) packet.Packet {
+func (codec XHR) decodeStringData(data []byte) (packet.Packet, error) {
+	size := len(data)
+
+	if size == 0 {
+		return packet.Packet{}, errors.New("invalid packet type")
+	}
+
 	var decoded []byte
 
-	if len(data) > 1 {
+	if size > 1 {
 		decoded = data[1:]
 	}
 
@@ -110,19 +127,30 @@ func (codec XHR) decodeStringData(data []byte) packet.Packet {
 		Binary: false,
 		Type:   packet.Type(data[0]),
 		Data:   decoded,
-	}
+	}, nil
 }
 
-func (codec XHR) decodeBinaryData(data []byte) packet.Packet {
-	var decoded []byte
+func (codec XHR) decodeBinaryData(data []byte) (packet.Packet, error) {
+	size := len(data)
 
-	if len(data) > 1 {
-		decoded, _ = base64.StdEncoding.DecodeString(string(data[1:]))
+	if size == 0 {
+		return packet.Packet{}, errors.New("invalid packet type")
+	}
+
+	var decoded []byte
+	var err error
+
+	if size > 1 {
+		decoded, err = base64.StdEncoding.DecodeString(string(data[1:]))
+
+		if err != nil {
+			return packet.Packet{}, errors.New("base64 decoding error: " + err.Error())
+		}
 	}
 
 	return packet.Packet{
 		Binary: true,
 		Type:   packet.Type(data[0]),
 		Data:   decoded,
-	}
+	}, nil
 }
