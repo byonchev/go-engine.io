@@ -7,6 +7,11 @@ type Packet struct {
 	Data   []byte
 }
 
+// NewOpen creates new open packet
+func NewOpen(data []byte) Packet {
+	return Packet{false, Open, data}
+}
+
 // NewClose creates new close packet
 func NewClose() Packet {
 	return Packet{false, Close, nil}
