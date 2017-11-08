@@ -60,7 +60,7 @@ func TestXHREncodeMixedPayload(t *testing.T) {
 	actual := string(codec.Encode(payload))
 	expected := "1:36:b4Kg=="
 
-	assert.Equal(t, expected, actual, "Mixed payload was not encoded properly")
+	assert.Equal(t, expected, actual, "mixed payload was not encoded properly")
 }
 
 func TestXHRDecodeSingleStringPayload(t *testing.T) {
@@ -114,7 +114,7 @@ func TestXHRDecodeMixedPayload(t *testing.T) {
 	}
 
 	assert.Nil(t, err, "error while decoding mixed payload")
-	assert.Equal(t, expected, actual, "Mixed payload was not decoded properly")
+	assert.Equal(t, expected, actual, "mixed payload was not decoded properly")
 }
 
 func TestXHRDecodeInvalidPayloads(t *testing.T) {
