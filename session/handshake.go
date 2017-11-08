@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"../packet"
+	"github.com/byonchev/go-engine.io/packet"
 )
 
 type handshakeMessage struct {

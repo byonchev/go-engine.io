@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"../codec"
-	"../packet"
+	"github.com/byonchev/go-engine.io/codec"
+	"github.com/byonchev/go-engine.io/packet"
 )
 
 const xhrFrameWindow = 50 * time.Millisecond

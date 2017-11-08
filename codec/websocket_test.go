@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"."
-	"../packet"
+	"github.com/byonchev/go-engine.io/codec"
+	"github.com/byonchev/go-engine.io/packet"
 )
 
 func TestWebSocketEncodeStringPacket(t *testing.T) {

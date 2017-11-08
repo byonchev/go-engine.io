@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"sync"
 
-	"../session"
+	"github.com/byonchev/go-engine.io/session"
 )
 
 // Server defines engine.io http endpoint and holds connected clients

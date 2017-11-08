@@ -1,8 +1,8 @@
 package engine
 
 import (
-	"../config"
-	"../session"
+	"github.com/byonchev/go-engine.io/config"
+	"github.com/byonchev/go-engine.io/session"
 )
 
 type Config struct {

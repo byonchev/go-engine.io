@@ -6,7 +6,7 @@ import (
 	"errors"
 	"strconv"
 
-	"../packet"
+	"github.com/byonchev/go-engine.io/packet"
 )
 
 // XHR is a codec for encoding messages for standard long polling

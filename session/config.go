@@ -1,6 +1,6 @@
 package session
 
-import "../config"
+import "github.com/byonchev/go-engine.io/config"
 
 type Config struct {
 	config.PingSettings

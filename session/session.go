@@ -3,8 +3,8 @@ package session
 import (
 	"net/http"
 
-	"../packet"
-	"../transport"
+	"github.com/byonchev/go-engine.io/packet"
+	"github.com/byonchev/go-engine.io/transport"
 )
 
 // Session holds information for a single connected client
@@ -28,6 +28,7 @@ func New(id string, config Config) *Session {
 		id:     id,
 		config: config,
 
+		transport:   transport.NewXHR(sendChannel, receiveChannel),
 		established: false,
 
 		sendChannel:    sendChannel,

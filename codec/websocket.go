@@ -3,7 +3,7 @@ package codec
 import (
 	"errors"
 
-	"../packet"
+	"github.com/byonchev/go-engine.io/packet"
 )
 
 // WebSocket is a codec for encoding packets for websocket transport.
