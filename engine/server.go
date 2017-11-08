@@ -49,7 +49,7 @@ func (server *Server) createSession(params url.Values) *session.Session {
 	sid := server.config.SIDGenerator.Generate()
 
 	config := session.Config{
-		server.config.PingSettings,
+		PingSettings: server.config.PingSettings,
 	}
 
 	session := session.New(sid, config)
