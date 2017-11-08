@@ -101,6 +101,10 @@ func (codec XHR) encodeBinaryData(packet packet.Packet) []byte {
 }
 
 func (codec XHR) decodePacket(data []byte) (packet.Packet, error) {
+	if len(data) == 0 {
+		return packet.Packet{}, errors.New("packet type missing")
+	}
+
 	binary := (data[0] == 'b')
 
 	if binary {
@@ -111,15 +115,9 @@ func (codec XHR) decodePacket(data []byte) (packet.Packet, error) {
 }
 
 func (codec XHR) decodeStringData(data []byte) (packet.Packet, error) {
-	size := len(data)
-
-	if size == 0 {
-		return packet.Packet{}, errors.New("invalid packet type")
-	}
-
 	var decoded []byte
 
-	if size > 1 {
+	if len(data) > 1 {
 		decoded = data[1:]
 	}
 
@@ -131,16 +129,10 @@ func (codec XHR) decodeStringData(data []byte) (packet.Packet, error) {
 }
 
 func (codec XHR) decodeBinaryData(data []byte) (packet.Packet, error) {
-	size := len(data)
-
-	if size == 0 {
-		return packet.Packet{}, errors.New("invalid packet type")
-	}
-
 	var decoded []byte
 	var err error
 
-	if size > 1 {
+	if len(data) > 1 {
 		decoded, err = base64.StdEncoding.DecodeString(string(data[1:]))
 
 		if err != nil {

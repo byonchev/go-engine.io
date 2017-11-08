@@ -116,3 +116,28 @@ func TestXHRDecodeMixedPayload(t *testing.T) {
 	assert.Nil(t, err, "error while decoding mixed payload")
 	assert.Equal(t, expected, actual, "Mixed payload was not decoded properly")
 }
+
+func TestXHRDecodeInvalidPayloads(t *testing.T) {
+	codec := codec.XHR{}
+
+	invalidLength := []byte("INVALID:3")
+	noStringPacketType := []byte("1:30:")
+	noBinaryPacketType := []byte("6:b4AGQI0:")
+	invalidBase64 := []byte("8:bINVALID")
+
+	_, err := codec.Decode(invalidLength)
+
+	assert.Error(t, err)
+
+	_, err = codec.Decode(noStringPacketType)
+
+	assert.Error(t, err)
+
+	_, err = codec.Decode(noBinaryPacketType)
+
+	assert.Error(t, err)
+
+	_, err = codec.Decode(invalidBase64)
+
+	assert.Error(t, err)
+}
