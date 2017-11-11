@@ -18,8 +18,8 @@ func NewClose() Packet {
 }
 
 // NewPong creates new pong packet
-func NewPong() Packet {
-	return Packet{false, Pong, nil}
+func NewPong(data []byte) Packet {
+	return Packet{false, Pong, data}
 }
 
 // NewStringMessage creates new string message packet
