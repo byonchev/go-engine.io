@@ -26,7 +26,7 @@ func TestXHREncodeMultipleStringPayload(t *testing.T) {
 	codec := codec.XHR{}
 
 	p1 := packet.NewStringMessage("hello")
-	p2 := packet.NewPong()
+	p2 := packet.NewPong(nil)
 
 	payload := packet.Payload{p1, p2}
 
@@ -52,7 +52,7 @@ func TestXHREncodeSingleBinaryPayload(t *testing.T) {
 func TestXHREncodeMixedPayload(t *testing.T) {
 	codec := codec.XHR{}
 
-	p1 := packet.NewPong()
+	p1 := packet.NewPong(nil)
 	p2 := packet.NewBinaryMessage([]byte{42})
 
 	payload := packet.Payload{p1, p2}
@@ -83,7 +83,7 @@ func TestXHRDecodeMultipleStringPayload(t *testing.T) {
 	actual, err := codec.Decode(data)
 	expected := packet.Payload{
 		packet.NewStringMessage("hello"),
-		packet.NewPong(),
+		packet.NewPong(nil),
 	}
 
 	assert.Nil(t, err, "error while decoding multiple strings payload")
@@ -109,7 +109,7 @@ func TestXHRDecodeMixedPayload(t *testing.T) {
 
 	actual, err := codec.Decode(data)
 	expected := packet.Payload{
-		packet.NewPong(),
+		packet.NewPong(nil),
 		packet.NewBinaryMessage([]byte{42}),
 	}
 
