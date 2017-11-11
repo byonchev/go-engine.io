@@ -6,7 +6,6 @@ import (
 
 	"github.com/byonchev/go-engine.io/config"
 	"github.com/byonchev/go-engine.io/packet"
-	
 	"github.com/stretchr/testify/assert"
 )
 
