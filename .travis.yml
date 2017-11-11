@@ -1,6 +1,13 @@
 language: go
 sudo: false
 
+notifications:
+  email:
+    recipients:
+      - boris@yonchev.me
+    on_success: never
+    on_failure: change
+
 matrix:
   include:
     - go: 1.7
