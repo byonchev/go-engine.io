@@ -23,6 +23,8 @@ type Session struct {
 	receiveChannel chan packet.Packet
 
 	lastPingTime time.Time
+
+	listener MessageListener
 }
 
 // NewSession creates a new client session
@@ -73,6 +75,24 @@ func (session *Session) Close() {
 	close(session.sendChannel)
 }
 
+// AttachListener sets listener for received packets
+func (session *Session) AttachListener(listener MessageListener) {
+	session.config.Listener = listener
+}
+
+// ID returns the session ID
+func (session *Session) ID() string {
+	return session.id
+}
+
+// Expired check if session is closed or last ping was not before (ping interval + ping timeout)
+func (session *Session) Expired() bool {
+	now := time.Now()
+	threshold := session.config.PingInterval + session.config.PingTimeout
+
+	return session.state == closed || session.lastPingTime.Add(threshold).Before(now)
+}
+
 func (session *Session) handshake() {
 	packet := createHandshakePacket(session.id, session.config)
 
@@ -82,14 +102,6 @@ func (session *Session) handshake() {
 	session.ping()
 
 	go session.receivePackets()
-}
-
-// Expired check if session is closed or last ping was not before (ping interval + ping timeout)
-func (session *Session) Expired() bool {
-	now := time.Now()
-	threshold := session.config.PingInterval + session.config.PingTimeout
-
-	return session.state == closed || session.lastPingTime.Add(threshold).Before(now)
 }
 
 func (session *Session) ping() {
@@ -112,6 +124,12 @@ func (session *Session) receivePackets() {
 
 		case packet.Close:
 			session.Close()
+		case packet.Message:
+			listener := session.config.Listener
+
+			if listener != nil {
+				listener.OnMessage(session, received)
+			}
 		}
 	}
 }

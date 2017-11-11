@@ -15,6 +15,8 @@ type Server struct {
 
 	config  Config
 	clients map[string]*session.Session
+
+	listener Listener
 }
 
 // NewServer creates a new engine server
@@ -50,6 +52,18 @@ func (server *Server) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 	client.HandleRequest(writer, request)
 }
 
+// AttachListener sets listener for server events
+func (server *Server) AttachListener(listener Listener) {
+	server.listener = listener
+
+	server.RLock()
+	defer server.RUnlock()
+
+	for _, session := range server.clients {
+		session.AttachListener(listener)
+	}
+}
+
 func (server *Server) checkPing() {
 	interval := server.config.PingInterval + server.config.PingTimeout
 
@@ -63,6 +77,10 @@ func (server *Server) checkPing() {
 				session.Close()
 
 				delete(server.clients, id)
+
+				if server.listener != nil {
+					server.listener.OnClose(session)
+				}
 			}
 		}
 
@@ -75,6 +93,7 @@ func (server *Server) createSession(params url.Values) *session.Session {
 
 	config := session.Config{
 		PingSettings: server.config.PingSettings,
+		Listener:     server.listener,
 	}
 
 	session := session.NewSession(sid, config)
@@ -83,6 +102,10 @@ func (server *Server) createSession(params url.Values) *session.Session {
 	defer server.Unlock()
 
 	server.clients[sid] = session
+
+	if server.listener != nil {
+		server.listener.OnOpen(session)
+	}
 
 	return session
 }
