@@ -5,20 +5,22 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/byonchev/go-engine.io/codec"
 	"github.com/byonchev/go-engine.io/packet"
 )
 
-const xhrFrameWindow = 50 * time.Millisecond
-
 // XHR is the standard polling transport
 type XHR struct {
+	state state
+
 	codec codec.Codec
 
-	readLock  sync.Mutex
-	writeLock sync.Mutex
+	readLock sync.Mutex
+
+	buffer packet.Buffer
+
+	receiving sync.WaitGroup
 
 	sendChannel    <-chan packet.Packet
 	receiveChannel chan<- packet.Packet
@@ -26,30 +28,48 @@ type XHR struct {
 
 // NewXHR creates new XHR transport
 func NewXHR(sendChannel <-chan packet.Packet, receiveChannel chan<- packet.Packet) *XHR {
-	return &XHR{
+	transport := &XHR{
 		codec:          codec.XHR{},
+		buffer:         packet.NewBuffer(10),
 		sendChannel:    sendChannel,
 		receiveChannel: receiveChannel,
+		state:          active,
 	}
+
+	go transport.bufferPackets()
+
+	return transport
 }
 
 // HandleRequest handles HTTP polling requests
-func (xhr *XHR) HandleRequest(writer http.ResponseWriter, request *http.Request) {
+func (transport *XHR) HandleRequest(writer http.ResponseWriter, request *http.Request) {
 	method := request.Method
+
+	if transport.state != active {
+		return
+	}
 
 	switch method {
 	case "GET":
-		xhr.write(writer)
+		transport.write(writer)
 	case "POST":
-		xhr.read(request.Body)
+		transport.read(request.Body)
 	default:
 		writer.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
 
-func (xhr *XHR) read(reader io.Reader) {
-	xhr.readLock.Lock()
-	defer xhr.readLock.Unlock()
+// Shutdown stopts the transport from receiving or sending packets
+func (transport *XHR) Shutdown() {
+	transport.state = shutdown
+
+	transport.receiving.Wait()
+	transport.buffer.Close()
+}
+
+func (transport *XHR) read(reader io.Reader) {
+	transport.readLock.Lock()
+	defer transport.readLock.Unlock()
 
 	data, err := ioutil.ReadAll(reader)
 
@@ -57,46 +77,37 @@ func (xhr *XHR) read(reader io.Reader) {
 		return
 	}
 
-	payload, err := xhr.codec.Decode(data)
+	payload, err := transport.codec.Decode(data)
 
 	if err != nil {
 		return
 	}
 
+	transport.receiving.Add(1)
+
 	for _, packet := range payload {
-		xhr.receiveChannel <- packet
+		transport.receiveChannel <- packet
 	}
+
+	transport.receiving.Done()
 }
 
-func (xhr *XHR) write(writer io.Writer) {
-	xhr.writeLock.Lock()
-	defer xhr.writeLock.Unlock()
+func (transport *XHR) write(writer io.Writer) {
+	payload := transport.buffer.Flush()
 
-	payload := xhr.createPayload()
-
-	data := xhr.codec.Encode(payload)
+	data := transport.codec.Encode(payload)
 
 	writer.Write(data)
 }
 
-func (xhr *XHR) createPayload() packet.Payload {
-	var payload packet.Payload
-
-	timer := time.NewTimer(xhrFrameWindow)
-
+func (transport *XHR) bufferPackets() {
 	for {
-		select {
-		case packet := <-xhr.sendChannel:
-			payload = append(payload, packet)
-			continue
-		case <-timer.C:
+		packet, ok := <-transport.sendChannel
+
+		if !ok {
+			return
 		}
 
-		if len(payload) == 0 {
-			timer.Reset(xhrFrameWindow)
-			continue
-		}
-
-		return payload
+		transport.buffer.Add(packet)
 	}
 }

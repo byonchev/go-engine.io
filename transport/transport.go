@@ -6,4 +6,5 @@ import (
 
 type Transport interface {
 	HandleRequest(http.ResponseWriter, *http.Request)
+	Shutdown()
 }

@@ -2,6 +2,8 @@ package session
 
 import (
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/byonchev/go-engine.io/packet"
 	"github.com/byonchev/go-engine.io/transport"
@@ -13,23 +15,27 @@ type Session struct {
 	config    Config
 	transport transport.Transport
 
-	established bool
+	state state
+
+	sending sync.WaitGroup
 
 	sendChannel    chan packet.Packet
 	receiveChannel chan packet.Packet
+
+	lastPingTime time.Time
 }
 
-// New creates a new client session
-func New(id string, config Config) *Session {
-	sendChannel := make(chan packet.Packet)
+// NewSession creates a new client session
+func NewSession(id string, config Config) *Session {
+	sendChannel := make(chan packet.Packet, 10)
 	receiveChannel := make(chan packet.Packet)
 
 	return &Session{
 		id:     id,
 		config: config,
 
-		transport:   transport.NewXHR(sendChannel, receiveChannel),
-		established: false,
+		transport: transport.NewXHR(sendChannel, receiveChannel),
+		state:     new,
 
 		sendChannel:    sendChannel,
 		receiveChannel: receiveChannel,
@@ -38,7 +44,7 @@ func New(id string, config Config) *Session {
 
 // HandleRequest is the bridge between the engine.io endpoint and the selected transport
 func (session *Session) HandleRequest(writer http.ResponseWriter, request *http.Request) {
-	if !session.established {
+	if session.state == new {
 		session.handshake()
 	}
 
@@ -47,7 +53,24 @@ func (session *Session) HandleRequest(writer http.ResponseWriter, request *http.
 
 // Send enqueues packets for sending (non-blocking)
 func (session *Session) Send(packet packet.Packet) {
-	go func() { session.sendChannel <- packet }()
+	if session.state == closed {
+		return
+	}
+
+	session.sending.Add(1)
+	session.sendChannel <- packet
+	session.sending.Done()
+}
+
+// Close changes the session state and closes the channels
+func (session *Session) Close() {
+	session.state = closed
+
+	session.transport.Shutdown()
+	close(session.receiveChannel)
+
+	session.sending.Wait()
+	close(session.sendChannel)
 }
 
 func (session *Session) handshake() {
@@ -55,17 +78,40 @@ func (session *Session) handshake() {
 
 	session.Send(packet)
 
-	session.established = true
+	session.state = active
+	session.ping()
 
-	go session.receiveLoop()
+	go session.receivePackets()
 }
 
-func (session *Session) receiveLoop() {
-	for {
-		received := <-session.receiveChannel
+// Expired check if session is closed or last ping was not before (ping interval + ping timeout)
+func (session *Session) Expired() bool {
+	now := time.Now()
+	threshold := session.config.PingInterval + session.config.PingTimeout
 
-		if received.Type == packet.Ping {
-			session.Send(packet.NewPong())
+	return session.state == closed || session.lastPingTime.Add(threshold).Before(now)
+}
+
+func (session *Session) ping() {
+	session.lastPingTime = time.Now()
+}
+
+func (session *Session) receivePackets() {
+	for {
+		received, ok := <-session.receiveChannel
+
+		if !ok {
+			return
+		}
+
+		session.ping()
+
+		switch received.Type {
+		case packet.Ping:
+			session.Send(packet.NewPong(nil))
+
+		case packet.Close:
+			session.Close()
 		}
 	}
 }
