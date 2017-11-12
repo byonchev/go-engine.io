@@ -123,6 +123,31 @@ func TestXHRReceiveAndShutdown(t *testing.T) {
 	assert.Equal(t, expected, actual, "payload was not received due to transport shutdown")
 }
 
+func TestInvalidHTTPMethod(t *testing.T) {
+	transport := transport.NewXHR(nil, nil)
+
+	request, _ := http.NewRequest("DELETE", "/", nil)
+	writer := httptest.NewRecorder()
+
+	transport.HandleRequest(writer, request)
+
+	assert.Equal(t, http.StatusMethodNotAllowed, writer.Code, "http handler responded to invalid method")
+}
+
+func TestReceiveInvalidPayload(t *testing.T) {
+	receiveChannel := make(chan packet.Packet, 10)
+
+	transport := transport.NewXHR(nil, receiveChannel)
+
+	clientSend(transport, []byte("INVALID:INVALID"))
+
+	select {
+	case <-receiveChannel:
+		t.Error("invalid received packet was processed")
+	default:
+	}
+}
+
 func clientReceive(transport transport.Transport) <-chan *bytes.Buffer {
 	result := make(chan *bytes.Buffer)
 
