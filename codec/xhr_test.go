@@ -111,7 +111,7 @@ func TestXHRDecodeErrors(t *testing.T) {
 		payload, err := codec.Decode(test)
 
 		assert.Empty(t, payload, "decoded invalid payload was not empty")
-		assert.Error(t, err)
+		assert.Error(t, err, "error was expected for decoding "+string(test))
 	}
 }
 
