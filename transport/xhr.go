@@ -14,10 +14,7 @@ import (
 type XHR struct {
 	state state
 
-	codec codec.Codec
-
-	readLock sync.Mutex
-
+	codec  codec.Codec
 	buffer packet.Buffer
 
 	receiving sync.WaitGroup
@@ -68,9 +65,6 @@ func (transport *XHR) Shutdown() {
 }
 
 func (transport *XHR) read(reader io.Reader) {
-	transport.readLock.Lock()
-	defer transport.readLock.Unlock()
-
 	data, err := ioutil.ReadAll(reader)
 
 	if err != nil {
@@ -101,13 +95,7 @@ func (transport *XHR) write(writer io.Writer) {
 }
 
 func (transport *XHR) bufferPackets() {
-	for {
-		packet, ok := <-transport.sendChannel
-
-		if !ok {
-			return
-		}
-
+	for packet := range transport.sendChannel {
 		transport.buffer.Add(packet)
 	}
 }
