@@ -30,7 +30,7 @@ type Session struct {
 // NewSession creates a new client session
 func NewSession(id string, config Config) *Session {
 	sendChannel := make(chan packet.Packet, 10)
-	receiveChannel := make(chan packet.Packet)
+	receiveChannel := make(chan packet.Packet, 10)
 
 	return &Session{
 		id:     id,
@@ -49,6 +49,8 @@ func (session *Session) HandleRequest(writer http.ResponseWriter, request *http.
 	if session.state == new {
 		session.handshake()
 	}
+
+	defer request.Body.Close()
 
 	session.transport.HandleRequest(writer, request)
 }
@@ -109,13 +111,7 @@ func (session *Session) ping() {
 }
 
 func (session *Session) receivePackets() {
-	for {
-		received, ok := <-session.receiveChannel
-
-		if !ok {
-			return
-		}
-
+	for received := range session.receiveChannel {
 		session.ping()
 
 		switch received.Type {
