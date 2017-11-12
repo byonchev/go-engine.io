@@ -100,7 +100,6 @@ func TestXHRDecodeErrors(t *testing.T) {
 	codec := codec.XHR{}
 
 	tests := [][]byte{
-		[]byte("INVALID_FORMAT"),
 		[]byte("INVALID_LENGTH:3"),
 		[]byte("1:30:"),
 		[]byte("6:b4AGQI0:"),
