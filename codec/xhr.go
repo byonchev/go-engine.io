@@ -9,6 +9,8 @@ import (
 	"github.com/byonchev/go-engine.io/packet"
 )
 
+var base64Encoding = base64.StdEncoding
+
 // XHR is a codec for encoding messages for standard long polling
 type XHR struct{}
 
@@ -29,10 +31,10 @@ func (codec XHR) Decode(encoded []byte) (packet.Payload, error) {
 	var payload packet.Payload
 
 	for i := 0; i < len(encoded); i++ {
-		ch := rune(encoded[i])
+		b := encoded[i]
 
-		if ch != ':' {
-			buffer.WriteRune(ch)
+		if b != ':' {
+			buffer.WriteByte(b)
 			continue
 		}
 
@@ -84,7 +86,7 @@ func (codec XHR) encodePacket(packet packet.Packet) []byte {
 func (codec XHR) encodeStringData(packet packet.Packet) []byte {
 	var buffer bytes.Buffer
 
-	buffer.WriteRune(rune(packet.Type))
+	buffer.WriteByte(byte(packet.Type))
 	buffer.Write(packet.Data)
 
 	return buffer.Bytes()
@@ -94,8 +96,8 @@ func (codec XHR) encodeBinaryData(packet packet.Packet) []byte {
 	var buffer bytes.Buffer
 
 	buffer.WriteRune('b')
-	buffer.WriteRune(rune(packet.Type))
-	buffer.WriteString(base64.StdEncoding.EncodeToString(packet.Data))
+	buffer.WriteByte(byte(packet.Type))
+	buffer.WriteString(base64Encoding.EncodeToString(packet.Data))
 
 	return buffer.Bytes()
 }
@@ -133,7 +135,7 @@ func (codec XHR) decodeBinaryData(data []byte) (packet.Packet, error) {
 	var err error
 
 	if len(data) > 1 {
-		decoded, err = base64.StdEncoding.DecodeString(string(data[1:]))
+		decoded, err = base64Encoding.DecodeString(string(data[1:]))
 
 		if err != nil {
 			return packet.Packet{}, errors.New("base64 decoding error: " + err.Error())
