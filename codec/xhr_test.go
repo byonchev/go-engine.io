@@ -3,10 +3,9 @@ package codec_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/byonchev/go-engine.io/codec"
 	"github.com/byonchev/go-engine.io/packet"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestXHREncode(t *testing.T) {
@@ -94,7 +93,6 @@ func TestXHRDecode(t *testing.T) {
 
 		assert.Nil(t, err, "error while decoding valid payload")
 		assert.Equal(t, expected, actual, "payload was not decoded properly")
-
 	}
 }
 

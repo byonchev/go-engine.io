@@ -19,26 +19,25 @@ func (WebSocket) Encode(payload packet.Payload) []byte {
 
 	packet := payload[0]
 
-	packetType := byte(packet.Type)
+	encoded := make([]byte, len(packet.Data)+1)
 
-	return append([]byte{packetType}, packet.Data...)
+	encoded[0] = byte(packet.Type)
+	copy(encoded[1:], packet.Data)
+
+	return encoded
 }
 
 // Decode decodes single packet from encoded payload
 func (WebSocket) Decode(encoded []byte) (packet.Payload, error) {
-	size := len(encoded)
-
-	if size == 0 {
+	if len(encoded) == 0 {
 		return nil, errors.New("invalid packet type")
 	}
 
-	packetType := packet.Type(encoded[0])
-
-	var data []byte
-
-	if size > 1 {
-		data = encoded[1:]
+	decoded := packet.Packet{
+		Binary: true,
+		Type:   packet.Type(encoded[0]),
+		Data:   encoded[1:],
 	}
 
-	return packet.Payload{packet.Packet{Binary: true, Type: packetType, Data: data}}, nil
+	return packet.Payload{decoded}, nil
 }
