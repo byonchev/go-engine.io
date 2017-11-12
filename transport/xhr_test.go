@@ -74,7 +74,7 @@ func TestXHRSendAndShutdown(t *testing.T) {
 	transport.Shutdown()
 
 	expected := []byte(nil)
-	actual := <-clientReceive(transport)
+	actual := (<-clientReceive(transport)).Bytes()
 
 	assert.Equal(t, expected, actual, "packets were sent to the client after shutdown")
 }
@@ -123,15 +123,15 @@ func TestXHRReceiveAndShutdown(t *testing.T) {
 	assert.Equal(t, expected, actual, "payload was not received due to transport shutdown")
 }
 
-func clientReceive(transport transport.Transport) <-chan []byte {
-	result := make(chan []byte)
+func clientReceive(transport transport.Transport) <-chan *bytes.Buffer {
+	result := make(chan *bytes.Buffer)
 
 	request, _ := http.NewRequest("GET", "/", nil)
 	writer := httptest.NewRecorder()
 
 	go func() {
 		transport.HandleRequest(writer, request)
-		result <- writer.Body.Bytes()
+		result <- writer.Body
 		close(result)
 	}()
 

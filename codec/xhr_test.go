@@ -1,6 +1,7 @@
 package codec_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/byonchev/go-engine.io/codec"
@@ -88,7 +89,7 @@ func TestXHRDecode(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual, err := codec.Decode(test.data)
+		actual, err := codec.Decode(bytes.NewBuffer(test.data))
 		expected := test.decoded
 
 		assert.Nil(t, err, "error while decoding valid payload")
@@ -107,7 +108,7 @@ func TestXHRDecodeErrors(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		payload, err := codec.Decode(test)
+		payload, err := codec.Decode(bytes.NewBuffer(test))
 
 		assert.Empty(t, payload, "decoded invalid payload was not empty")
 		assert.Error(t, err, "error was expected for decoding "+string(test))
@@ -133,7 +134,9 @@ func BenchmarkXHRDecode(b *testing.B) {
 
 	data := []byte("6:0hello6:4world6:b4IQ==")
 
+	reader := bytes.NewBuffer(data)
+
 	for n := 0; n < b.N; n++ {
-		codec.Decode(data)
+		codec.Decode(reader)
 	}
 }

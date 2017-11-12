@@ -2,7 +2,6 @@ package transport
 
 import (
 	"io"
-	"io/ioutil"
 	"net/http"
 	"sync"
 
@@ -65,13 +64,7 @@ func (transport *XHR) Shutdown() {
 }
 
 func (transport *XHR) read(reader io.Reader) {
-	data, err := ioutil.ReadAll(reader)
-
-	if err != nil {
-		return
-	}
-
-	payload, err := transport.codec.Decode(data)
+	payload, err := transport.codec.Decode(reader)
 
 	if err != nil {
 		return

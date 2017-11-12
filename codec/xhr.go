@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
+	"io"
+	"io/ioutil"
 	"strconv"
 
 	"github.com/byonchev/go-engine.io/packet"
@@ -26,38 +28,29 @@ func (codec XHR) Encode(payload packet.Payload) []byte {
 }
 
 // Decode decodes payload of packets
-func (codec XHR) Decode(encoded []byte) (packet.Payload, error) {
-	var buffer bytes.Buffer
-	var payload packet.Payload
+func (codec XHR) Decode(reader io.Reader) (packet.Payload, error) {
+	encoded, err := ioutil.ReadAll(reader)
 
-	for i := 0; i < len(encoded); i++ {
-		b := encoded[i]
+	if err != nil {
+		return nil, err
+	}
 
-		if b != ':' {
-			buffer.WriteByte(b)
-			continue
-		}
+	packets, err := codec.splitPayload(encoded)
 
-		length, err := strconv.Atoi(buffer.String())
+	if err != nil {
+		return nil, err
+	}
 
-		if err != nil {
-			return nil, errors.New("invalid packet length")
-		}
+	payload := make(packet.Payload, len(packets))
 
-		start := i + 1
-		end := start + length
-
-		packet, err := codec.decodePacket(encoded[start:end])
+	for i, packet := range packets {
+		decoded, err := codec.decodePacket(packet)
 
 		if err != nil {
 			return nil, err
 		}
 
-		payload = append(payload, packet)
-
-		buffer.Reset()
-
-		i = end - 1
+		payload[i] = decoded
 	}
 
 	return payload, nil
@@ -100,6 +93,36 @@ func (codec XHR) encodeBinaryData(packet packet.Packet) []byte {
 	buffer.WriteString(base64Encoding.EncodeToString(packet.Data))
 
 	return buffer.Bytes()
+}
+
+func (codec XHR) splitPayload(data []byte) ([][]byte, error) {
+	var packets [][]byte
+	var lengthBytes []byte
+
+	for i := 0; i < len(data); i++ {
+		b := data[i]
+
+		if b != ':' {
+			lengthBytes = append(lengthBytes, b)
+			continue
+		}
+
+		length, err := strconv.Atoi(string(lengthBytes))
+
+		if err != nil {
+			return nil, errors.New("invalid packet length")
+		}
+
+		start := i + 1
+		end := start + length
+
+		packets = append(packets, data[start:end])
+
+		lengthBytes = nil
+		i = end - 1
+	}
+
+	return packets, nil
 }
 
 func (codec XHR) decodePacket(data []byte) (packet.Packet, error) {
