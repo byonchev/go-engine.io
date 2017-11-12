@@ -31,3 +31,8 @@ func NewStringMessage(data string) Packet {
 func NewBinaryMessage(data []byte) Packet {
 	return Packet{true, Message, data}
 }
+
+// NewNOOP creates new NOOP packet
+func NewNOOP() Packet {
+	return Packet{false, NOOP, nil}
+}
