@@ -12,5 +12,6 @@ type UUIDGenerator struct{}
 
 // Generate returns UUIDv4 string
 func (generator UUIDGenerator) Generate() string {
-	return uuid.NewV4().String()
+	uuid, _ := uuid.NewV4()
+	return uuid.String()
 }
