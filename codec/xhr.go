@@ -16,15 +16,17 @@ var base64Encoding = base64.StdEncoding
 // XHR is a codec for encoding messages for standard long polling
 type XHR struct{}
 
-// Encode encodes payload of packets for single sending.
-func (codec XHR) Encode(payload packet.Payload) []byte {
-	var buffer bytes.Buffer
-
+// Encode encodes payload of packets for single poll
+func (codec XHR) Encode(payload packet.Payload, writer io.Writer) error {
 	for _, packet := range payload {
-		buffer.Write(codec.encodePacket(packet))
+		err := codec.encodePacket(packet, writer)
+
+		if err != nil {
+			return err
+		}
 	}
 
-	return buffer.Bytes()
+	return nil
 }
 
 // Decode decodes payload of packets
@@ -56,7 +58,7 @@ func (codec XHR) Decode(reader io.Reader) (packet.Payload, error) {
 	return payload, nil
 }
 
-func (codec XHR) encodePacket(packet packet.Packet) []byte {
+func (codec XHR) encodePacket(packet packet.Packet, writer io.Writer) error {
 	var data []byte
 
 	if packet.Binary {
@@ -65,21 +67,23 @@ func (codec XHR) encodePacket(packet packet.Packet) []byte {
 		data = codec.encodeStringData(packet)
 	}
 
-	var buffer bytes.Buffer
-
 	length := len(data)
 
-	buffer.WriteString(strconv.Itoa(length))
-	buffer.WriteRune(':')
-	buffer.Write(data)
+	var encoded []byte
 
-	return buffer.Bytes()
+	encoded = append(encoded, []byte(strconv.Itoa(length))...)
+	encoded = append(encoded, ':')
+	encoded = append(encoded, data...)
+
+	_, err := writer.Write(encoded)
+
+	return err
 }
 
 func (codec XHR) encodeStringData(packet packet.Packet) []byte {
 	var buffer bytes.Buffer
 
-	buffer.WriteByte(byte(packet.Type))
+	buffer.WriteByte(packet.Type.Char())
 	buffer.Write(packet.Data)
 
 	return buffer.Bytes()
@@ -89,7 +93,7 @@ func (codec XHR) encodeBinaryData(packet packet.Packet) []byte {
 	var buffer bytes.Buffer
 
 	buffer.WriteRune('b')
-	buffer.WriteByte(byte(packet.Type))
+	buffer.WriteByte(packet.Type.Char())
 	buffer.WriteString(base64Encoding.EncodeToString(packet.Data))
 
 	return buffer.Bytes()
@@ -148,7 +152,7 @@ func (codec XHR) decodeStringData(data []byte) (packet.Packet, error) {
 
 	return packet.Packet{
 		Binary: false,
-		Type:   packet.Type(data[0]),
+		Type:   packet.TypeFromChar(data[0]),
 		Data:   decoded,
 	}, nil
 }
@@ -167,7 +171,7 @@ func (codec XHR) decodeBinaryData(data []byte) (packet.Packet, error) {
 
 	return packet.Packet{
 		Binary: true,
-		Type:   packet.Type(data[0]),
+		Type:   packet.TypeFromChar(data[0]),
 		Data:   decoded,
 	}, nil
 }

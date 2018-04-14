@@ -1,6 +1,7 @@
 package codec_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/byonchev/go-engine.io/codec"
@@ -25,14 +26,14 @@ func TestWebSocketEncode(t *testing.T) {
 			packet.Payload{
 				packet.NewBinaryMessage([]byte{0, 1}),
 			},
-			[]byte{'4', 0, 1},
+			[]byte{4, 0, 1},
 		},
 		{
 			packet.Payload{
 				packet.NewStringMessage("hello"),
 				packet.NewStringMessage("world"),
 			},
-			[]byte("4hello"),
+			[]byte("4hello4world"),
 		},
 		{
 			packet.Payload{
@@ -42,14 +43,19 @@ func TestWebSocketEncode(t *testing.T) {
 		},
 		{
 			packet.Payload{},
-			[]byte{},
+			nil,
 		},
 	}
 
 	for _, test := range tests {
-		actual := codec.Encode(test.payload)
+		var buffer bytes.Buffer
+
+		err := codec.Encode(test.payload, &buffer)
+
+		actual := buffer.Bytes()
 		expected := test.encoded
 
+		assert.Nil(t, err, "error while encoding valid payload")
 		assert.Equal(t, actual, expected, "payload was not encoded properly")
 	}
 }
@@ -64,11 +70,11 @@ func TestWebSocketDecode(t *testing.T) {
 		{
 			[]byte("4hello"),
 			packet.Payload{
-				packet.NewBinaryMessage([]byte("hello")),
+				packet.NewStringMessage("hello"),
 			},
 		},
 		{
-			[]byte{'4', 0, 1},
+			[]byte{4, 0, 1},
 			packet.Payload{
 				packet.NewBinaryMessage([]byte{0, 1}),
 			},
@@ -76,7 +82,9 @@ func TestWebSocketDecode(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual, err := codec.Decode(test.data)
+		buffer := bytes.NewBuffer(test.data)
+
+		actual, err := codec.Decode(buffer)
 		expected := test.decoded
 
 		assert.Nil(t, err, "error while decoding valid payload")
@@ -89,7 +97,9 @@ func TestWebSocketDecodeErrors(t *testing.T) {
 
 	data := []byte{}
 
-	payload, err := codec.Decode(data)
+	buffer := bytes.NewBuffer(data)
+
+	payload, err := codec.Decode(buffer)
 
 	assert.Empty(t, payload, "decoded invalid payload was not empty")
 	assert.Error(t, err)
@@ -98,31 +108,26 @@ func TestWebSocketDecodeErrors(t *testing.T) {
 func BenchmarkWebSocketEncode(b *testing.B) {
 	codec := codec.WebSocket{}
 
-	payloads := []packet.Payload{
-		packet.Payload{packet.NewOpen([]byte("hello"))},
-		packet.Payload{packet.NewStringMessage("world")},
-		packet.Payload{packet.NewBinaryMessage([]byte{'!'})},
+	payload := packet.Payload{
+		packet.NewOpen([]byte("hello")),
+		packet.NewStringMessage("world"),
+		packet.NewBinaryMessage([]byte{'!'}),
 	}
 
+	var buffer bytes.Buffer
+
 	for n := 0; n < b.N; n++ {
-		for _, payload := range payloads {
-			codec.Encode(payload)
-		}
+		codec.Encode(payload, &buffer)
 	}
 }
 
 func BenchmarkWebSocketDecode(b *testing.B) {
 	codec := codec.WebSocket{}
 
-	packets := [][]byte{
-		[]byte("0hello"),
-		[]byte("4world"),
-		[]byte{'4', '!'},
-	}
+	buffer := bytes.NewBuffer([]byte("0hello"))
 
 	for n := 0; n < b.N; n++ {
-		for _, data := range packets {
-			codec.Decode(data)
-		}
+		codec.Decode(buffer)
+
 	}
 }

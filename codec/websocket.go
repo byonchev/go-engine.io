@@ -2,42 +2,82 @@ package codec
 
 import (
 	"errors"
+	"io"
+	"io/ioutil"
+	"unicode"
 
 	"github.com/byonchev/go-engine.io/packet"
 )
 
-// WebSocket is a codec for encoding packets for websocket transport.
-// Since the protocol has its own framing mechanism, packets are
-// sent and received one by one, instead of being grouped in payloads.
+// WebSocket is a codec for encoding packets for websocket transport
 type WebSocket struct{}
 
 // Encode encodes a single packet in payload
-func (WebSocket) Encode(payload packet.Payload) []byte {
+func (codec WebSocket) Encode(payload packet.Payload, writer io.Writer) error {
 	if len(payload) == 0 {
-		return []byte{}
+		return nil
 	}
 
-	packet := payload[0]
+	for _, packet := range payload {
+		err := codec.encodePacket(packet, writer)
 
-	encoded := make([]byte, len(packet.Data)+1)
+		if err != nil {
+			return err
+		}
+	}
 
-	encoded[0] = byte(packet.Type)
-	copy(encoded[1:], packet.Data)
-
-	return encoded
+	return nil
 }
 
 // Decode decodes single packet from encoded payload
-func (WebSocket) Decode(encoded []byte) (packet.Payload, error) {
+func (WebSocket) Decode(reader io.Reader) (packet.Payload, error) {
+	encoded, err := ioutil.ReadAll(reader)
+
+	if err != nil {
+		return nil, err
+	}
+
 	if len(encoded) == 0 {
 		return nil, errors.New("invalid packet type")
 	}
 
+	var binary bool
+	var packetType packet.Type
+
+	typeByte := encoded[0]
+
+	if unicode.IsNumber(rune(typeByte)) {
+		binary = false
+		packetType = packet.TypeFromChar(typeByte)
+	} else {
+		binary = true
+		packetType = packet.TypeFromByte(typeByte)
+	}
+
 	decoded := packet.Packet{
-		Binary: true,
-		Type:   packet.Type(encoded[0]),
+		Binary: binary,
+		Type:   packetType,
 		Data:   encoded[1:],
 	}
 
 	return packet.Payload{decoded}, nil
+}
+
+func (codec WebSocket) encodePacket(packet packet.Packet, writer io.Writer) error {
+	encoded := make([]byte, len(packet.Data)+1)
+
+	var packetType byte
+
+	if packet.Binary {
+		packetType = packet.Type.Byte()
+	} else {
+		packetType = packet.Type.Char()
+	}
+
+	encoded[0] = packetType
+	copy(encoded[1:], packet.Data)
+
+	_, err := writer.Write(encoded)
+
+	return err
 }

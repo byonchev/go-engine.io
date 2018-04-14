@@ -45,9 +45,14 @@ func TestXHREncode(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual := string(codec.Encode(test.payload))
+		var buffer bytes.Buffer
+
+		err := codec.Encode(test.payload, &buffer)
+
+		actual := buffer.String()
 		expected := test.encoded
 
+		assert.Nil(t, err, "error while encoding payload")
 		assert.Equal(t, expected, actual, "payload was not encoded propery")
 	}
 }
@@ -124,8 +129,10 @@ func BenchmarkXHREncode(b *testing.B) {
 		packet.NewBinaryMessage([]byte{'!'}),
 	}
 
+	var buffer bytes.Buffer
+
 	for n := 0; n < b.N; n++ {
-		codec.Encode(payload)
+		codec.Encode(payload, &buffer)
 	}
 }
 
@@ -134,9 +141,9 @@ func BenchmarkXHRDecode(b *testing.B) {
 
 	data := []byte("6:0hello6:4world6:b4IQ==")
 
-	reader := bytes.NewBuffer(data)
+	buffer := bytes.NewBuffer(data)
 
 	for n := 0; n < b.N; n++ {
-		codec.Decode(reader)
+		codec.Decode(buffer)
 	}
 }
