@@ -11,7 +11,7 @@ import (
 
 // XHR is the standard polling transport
 type XHR struct {
-	state state
+	running bool
 
 	codec  codec.Codec
 	buffer packet.Buffer
@@ -29,7 +29,7 @@ func NewXHR(sendChannel <-chan packet.Packet, receiveChannel chan<- packet.Packe
 		buffer:         packet.NewBuffer(10),
 		sendChannel:    sendChannel,
 		receiveChannel: receiveChannel,
-		state:          active,
+		running:        true,
 	}
 
 	go transport.bufferPackets()
@@ -41,7 +41,7 @@ func NewXHR(sendChannel <-chan packet.Packet, receiveChannel chan<- packet.Packe
 func (transport *XHR) HandleRequest(writer http.ResponseWriter, request *http.Request) {
 	method := request.Method
 
-	if transport.state != active {
+	if !transport.running {
 		return
 	}
 
@@ -55,9 +55,9 @@ func (transport *XHR) HandleRequest(writer http.ResponseWriter, request *http.Re
 	}
 }
 
-// Shutdown stopts the transport from receiving or sending packets
+// Shutdown stops the transport from receiving or sending packets
 func (transport *XHR) Shutdown() {
-	transport.state = shutdown
+	transport.running = false
 
 	transport.receiving.Wait()
 	transport.buffer.Close()
@@ -82,9 +82,11 @@ func (transport *XHR) read(reader io.Reader) {
 func (transport *XHR) write(writer io.Writer) {
 	payload := transport.buffer.Flush()
 
-	data := transport.codec.Encode(payload)
+	err := transport.codec.Encode(payload, writer)
 
-	writer.Write(data)
+	if err != nil {
+		return
+	}
 }
 
 func (transport *XHR) bufferPackets() {

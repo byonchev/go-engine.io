@@ -85,19 +85,21 @@ func TestXHRReceivePayload(t *testing.T) {
 	codec := codec.XHR{}
 	transport := transport.NewXHR(nil, receiveChannel)
 
-	packets := []packet.Packet{
+	payload := packet.Payload{
 		packet.NewStringMessage("hello"),
 		packet.NewStringMessage("world"),
 	}
 
-	sent := codec.Encode(packet.Payload(packets))
+	var buffer bytes.Buffer
 
-	clientSend(transport, sent)
+	codec.Encode(payload, &buffer)
 
-	for _, expected := range packets {
+	clientSend(transport, &buffer)
+
+	for _, expected := range payload {
 		actual := <-receiveChannel
 
-		assert.Equal(t, expected, actual, "packets were not received from client")
+		assert.Equal(t, expected, actual, "packets sents from client were not received")
 	}
 }
 
@@ -110,7 +112,11 @@ func TestXHRReceiveAndShutdown(t *testing.T) {
 	sent := packet.NewNOOP()
 
 	go func() {
-		clientSend(transport, codec.Encode(packet.Payload{sent}))
+		var buffer bytes.Buffer
+
+		codec.Encode(packet.Payload{sent}, &buffer)
+
+		clientSend(transport, &buffer)
 		transport.Shutdown()
 	}()
 
@@ -139,7 +145,9 @@ func TestReceiveInvalidPayload(t *testing.T) {
 
 	transport := transport.NewXHR(nil, receiveChannel)
 
-	clientSend(transport, []byte("INVALID:INVALID"))
+	buffer := bytes.NewBuffer([]byte("INVALID:INVALID"))
+
+	clientSend(transport, buffer)
 
 	select {
 	case <-receiveChannel:
@@ -163,9 +171,7 @@ func clientReceive(transport transport.Transport) <-chan *bytes.Buffer {
 	return result
 }
 
-func clientSend(transport transport.Transport, data []byte) {
-	buffer := bytes.NewBuffer(data)
-
+func clientSend(transport transport.Transport, buffer *bytes.Buffer) {
 	request, _ := http.NewRequest("POST", "/", buffer)
 	writer := httptest.NewRecorder()
 
