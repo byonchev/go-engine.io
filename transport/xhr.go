@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"sync"
@@ -14,25 +15,21 @@ type XHR struct {
 	running bool
 
 	codec  codec.Codec
-	buffer packet.Buffer
+	buffer *packet.Buffer
 
 	receiving sync.WaitGroup
 
-	sendChannel    <-chan packet.Packet
-	receiveChannel chan<- packet.Packet
+	received chan packet.Packet
 }
 
 // NewXHR creates new XHR transport
-func NewXHR(sendChannel <-chan packet.Packet, receiveChannel chan<- packet.Packet) *XHR {
+func NewXHR() *XHR {
 	transport := &XHR{
-		codec:          codec.XHR{},
-		buffer:         packet.NewBuffer(10),
-		sendChannel:    sendChannel,
-		receiveChannel: receiveChannel,
-		running:        true,
+		codec:    codec.XHR{},
+		buffer:   packet.NewBuffer(),
+		received: make(chan packet.Packet),
+		running:  true,
 	}
-
-	go transport.bufferPackets()
 
 	return transport
 }
@@ -55,12 +52,32 @@ func (transport *XHR) HandleRequest(writer http.ResponseWriter, request *http.Re
 	}
 }
 
+// Send buffers packets for sending on next poll cycle
+func (transport *XHR) Send(packet packet.Packet) error {
+	transport.buffer.Add(packet)
+
+	return nil
+}
+
+// Receive returns the last received packet or blocks until a packet is present
+func (transport *XHR) Receive() (packet.Packet, error) {
+	received, success := <-transport.received
+
+	if !success {
+		return packet.Packet{}, errors.New("transport is stopped")
+	}
+
+	return received, nil
+}
+
 // Shutdown stops the transport from receiving or sending packets
 func (transport *XHR) Shutdown() {
 	transport.running = false
 
 	transport.receiving.Wait()
 	transport.buffer.Close()
+
+	close(transport.received)
 }
 
 func (transport *XHR) read(reader io.Reader) {
@@ -73,7 +90,7 @@ func (transport *XHR) read(reader io.Reader) {
 	transport.receiving.Add(1)
 
 	for _, packet := range payload {
-		transport.receiveChannel <- packet
+		transport.received <- packet
 	}
 
 	transport.receiving.Done()
@@ -85,12 +102,7 @@ func (transport *XHR) write(writer io.Writer) {
 	err := transport.codec.Encode(payload, writer)
 
 	if err != nil {
+		//TODO: Error handling
 		return
-	}
-}
-
-func (transport *XHR) bufferPackets() {
-	for packet := range transport.sendChannel {
-		transport.buffer.Add(packet)
 	}
 }

@@ -16,10 +16,8 @@ import (
 const waitTime = 100 * time.Millisecond
 
 func TestXHRSendBufferedPayload(t *testing.T) {
-	sendChannel := make(chan packet.Packet, 10)
-
 	codec := codec.XHR{}
-	transport := transport.NewXHR(sendChannel, nil)
+	transport := transport.NewXHR()
 
 	packets := []packet.Packet{
 		packet.NewStringMessage("hello"),
@@ -27,10 +25,8 @@ func TestXHRSendBufferedPayload(t *testing.T) {
 	}
 
 	for _, packet := range packets {
-		sendChannel <- packet
+		transport.Send(packet)
 	}
-
-	close(sendChannel)
 
 	// ensure all packets are buffered
 	time.Sleep(waitTime)
@@ -44,17 +40,15 @@ func TestXHRSendBufferedPayload(t *testing.T) {
 }
 
 func TestXHRSendPayloadAfterRequest(t *testing.T) {
-	sendChannel := make(chan packet.Packet, 10)
-
 	codec := codec.XHR{}
-	transport := transport.NewXHR(sendChannel, nil)
+	transport := transport.NewXHR()
 
 	sent := packet.NewClose()
 
 	go func() {
 		// ensure http request is sent
 		time.Sleep(waitTime)
-		sendChannel <- packet.NewClose()
+		transport.Send(sent)
 	}()
 
 	received := <-clientReceive(transport)
@@ -66,11 +60,9 @@ func TestXHRSendPayloadAfterRequest(t *testing.T) {
 }
 
 func TestXHRSendAndShutdown(t *testing.T) {
-	sendChannel := make(chan packet.Packet, 10)
+	transport := transport.NewXHR()
 
-	transport := transport.NewXHR(sendChannel, nil)
-
-	sendChannel <- packet.NewNOOP()
+	transport.Send(packet.NewNOOP())
 	transport.Shutdown()
 
 	expected := []byte(nil)
@@ -80,10 +72,8 @@ func TestXHRSendAndShutdown(t *testing.T) {
 }
 
 func TestXHRReceivePayload(t *testing.T) {
-	receiveChannel := make(chan packet.Packet, 10)
-
 	codec := codec.XHR{}
-	transport := transport.NewXHR(nil, receiveChannel)
+	transport := transport.NewXHR()
 
 	payload := packet.Payload{
 		packet.NewStringMessage("hello"),
@@ -97,17 +87,16 @@ func TestXHRReceivePayload(t *testing.T) {
 	clientSend(transport, &buffer)
 
 	for _, expected := range payload {
-		actual := <-receiveChannel
+		actual, err := transport.Receive()
 
+		assert.NoError(t, err, "error while receiving sent packets")
 		assert.Equal(t, expected, actual, "packets sents from client were not received")
 	}
 }
 
 func TestXHRReceiveAndShutdown(t *testing.T) {
-	receiveChannel := make(chan packet.Packet)
-
 	codec := codec.XHR{}
-	transport := transport.NewXHR(nil, receiveChannel)
+	transport := transport.NewXHR()
 
 	sent := packet.NewNOOP()
 
@@ -124,13 +113,14 @@ func TestXHRReceiveAndShutdown(t *testing.T) {
 	time.Sleep(waitTime)
 
 	expected := sent
-	actual, _ := <-receiveChannel
+	actual, err := transport.Receive()
 
+	assert.NoError(t, err, "error while receiving sent packets")
 	assert.Equal(t, expected, actual, "payload was not received due to transport shutdown")
 }
 
-func TestInvalidHTTPMethod(t *testing.T) {
-	transport := transport.NewXHR(nil, nil)
+func TestXHRInvalidHTTPMethod(t *testing.T) {
+	transport := transport.NewXHR()
 
 	request, _ := http.NewRequest("DELETE", "/", nil)
 	writer := httptest.NewRecorder()
@@ -140,20 +130,19 @@ func TestInvalidHTTPMethod(t *testing.T) {
 	assert.Equal(t, http.StatusMethodNotAllowed, writer.Code, "http handler responded to invalid method")
 }
 
-func TestReceiveInvalidPayload(t *testing.T) {
-	receiveChannel := make(chan packet.Packet, 10)
-
-	transport := transport.NewXHR(nil, receiveChannel)
+func TestXHRReceiveInvalidPayload(t *testing.T) {
+	transport := transport.NewXHR()
 
 	buffer := bytes.NewBuffer([]byte("INVALID:INVALID"))
 
 	clientSend(transport, buffer)
 
-	select {
-	case <-receiveChannel:
+	go func() {
+		transport.Receive()
 		t.Error("invalid received packet was processed")
-	default:
-	}
+	}()
+
+	time.Sleep(100 * time.Millisecond)
 }
 
 func clientReceive(transport transport.Transport) <-chan *bytes.Buffer {
@@ -175,5 +164,9 @@ func clientSend(transport transport.Transport, buffer *bytes.Buffer) {
 	request, _ := http.NewRequest("POST", "/", buffer)
 	writer := httptest.NewRecorder()
 
-	transport.HandleRequest(writer, request)
+	go func() {
+		transport.HandleRequest(writer, request)
+	}()
+
+	time.Sleep(100 * time.Millisecond)
 }

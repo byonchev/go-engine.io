@@ -7,6 +7,9 @@ type Packet struct {
 	Data   []byte
 }
 
+// Payload is a collection of packets
+type Payload []Packet
+
 // NewOpen creates new open packet
 func NewOpen(data []byte) Packet {
 	return Packet{false, Open, data}

@@ -1,6 +1,7 @@
 package session
 
 import (
+	"errors"
 	"net/http"
 	"sync"
 	"time"
@@ -19,9 +20,6 @@ type Session struct {
 
 	sending sync.WaitGroup
 
-	sendChannel    chan packet.Packet
-	receiveChannel chan packet.Packet
-
 	lastPingTime time.Time
 
 	listener MessageListener
@@ -29,18 +27,12 @@ type Session struct {
 
 // NewSession creates a new client session
 func NewSession(id string, config Config) *Session {
-	sendChannel := make(chan packet.Packet, 10)
-	receiveChannel := make(chan packet.Packet, 10)
-
 	return &Session{
 		id:     id,
 		config: config,
 
-		transport: transport.NewXHR(sendChannel, receiveChannel),
+		transport: transport.NewXHR(),
 		state:     new,
-
-		sendChannel:    sendChannel,
-		receiveChannel: receiveChannel,
 	}
 }
 
@@ -56,25 +48,24 @@ func (session *Session) HandleRequest(writer http.ResponseWriter, request *http.
 }
 
 // Send enqueues packets for sending (non-blocking)
-func (session *Session) Send(packet packet.Packet) {
+func (session *Session) Send(packet packet.Packet) error {
 	if session.state == closed {
-		return
+		return errors.New("send on closed session")
 	}
 
 	session.sending.Add(1)
-	session.sendChannel <- packet
+	err := session.transport.Send(packet)
 	session.sending.Done()
+
+	return err
 }
 
 // Close changes the session state and closes the channels
 func (session *Session) Close() {
 	session.state = closed
 
-	session.transport.Shutdown()
-	close(session.receiveChannel)
-
 	session.sending.Wait()
-	close(session.sendChannel)
+	session.transport.Shutdown()
 }
 
 // AttachListener sets listener for received packets
@@ -111,13 +102,19 @@ func (session *Session) ping() {
 }
 
 func (session *Session) receivePackets() {
-	for received := range session.receiveChannel {
+	for session.state != closed {
+		received, err := session.transport.Receive()
+
+		if err != nil {
+			session.Close()
+			break
+		}
+
 		session.ping()
 
 		switch received.Type {
 		case packet.Ping:
 			session.Send(packet.NewPong(nil))
-
 		case packet.Close:
 			session.Close()
 		case packet.Message:
