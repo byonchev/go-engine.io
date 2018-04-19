@@ -72,6 +72,10 @@ func (transport *XHR) Receive() (packet.Packet, error) {
 
 // Shutdown stops the transport from receiving or sending packets
 func (transport *XHR) Shutdown() {
+	if !transport.running {
+		return
+	}
+
 	transport.running = false
 
 	transport.receiving.Wait()

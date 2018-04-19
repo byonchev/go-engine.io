@@ -62,6 +62,10 @@ func (session *Session) Send(packet packet.Packet) error {
 
 // Close changes the session state and closes the channels
 func (session *Session) Close() {
+	if session.state == closed {
+		return
+	}
+
 	session.state = closed
 
 	session.sending.Wait()

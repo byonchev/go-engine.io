@@ -66,6 +66,10 @@ func (buffer *Buffer) Close() {
 	buffer.writeLock.Lock()
 	defer buffer.writeLock.Unlock()
 
+	if buffer.closed {
+		return
+	}
+
 	buffer.closed = true
 
 	if !buffer.flushable {
