@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/byonchev/go-engine.io/codec"
+	"github.com/byonchev/go-engine.io/logger"
 	"github.com/byonchev/go-engine.io/packet"
 )
 
@@ -88,6 +89,7 @@ func (transport *XHR) read(reader io.Reader) {
 	payload, err := transport.codec.Decode(reader)
 
 	if err != nil {
+		logger.Error("error while receiving messages:", err)
 		return
 	}
 
@@ -106,7 +108,7 @@ func (transport *XHR) write(writer io.Writer) {
 	err := transport.codec.Encode(payload, writer)
 
 	if err != nil {
-		//TODO: Error handling
+		logger.Error("error while sending messages:", err)
 		return
 	}
 }
