@@ -4,17 +4,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/byonchev/go-engine.io/config"
 	"github.com/byonchev/go-engine.io/packet"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestHandshakePacket(t *testing.T) {
 	config := Config{
-		PingSettings: config.PingSettings{
-			PingInterval: 1 * time.Second,
-			PingTimeout:  2 * time.Second,
-		},
+		PingInterval: 1 * time.Second,
+		PingTimeout:  2 * time.Second,
 	}
 
 	expected := packet.Packet{
