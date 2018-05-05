@@ -1,13 +1,16 @@
 package session
 
 import (
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/byonchev/go-engine.io/logger"
 	"github.com/byonchev/go-engine.io/packet"
 	"github.com/byonchev/go-engine.io/transport"
+	uuid "github.com/satori/go.uuid"
 )
 
 // Session holds information for a single connected client
@@ -21,12 +24,13 @@ type Session struct {
 	sending sync.WaitGroup
 
 	lastPingTime time.Time
-
-	listener MessageListener
 }
 
 // NewSession creates a new client session
-func NewSession(id string, config Config) *Session {
+func NewSession(config Config) *Session {
+	uuid, _ := uuid.NewV4()
+	id := base64.URLEncoding.EncodeToString(uuid.Bytes())
+
 	return &Session{
 		id:     id,
 		config: config,
@@ -61,7 +65,7 @@ func (session *Session) Send(packet packet.Packet) error {
 }
 
 // Close changes the session state and closes the channels
-func (session *Session) Close() {
+func (session *Session) Close(reason interface{}) {
 	if session.state == closed {
 		return
 	}
@@ -70,11 +74,12 @@ func (session *Session) Close() {
 
 	session.sending.Wait()
 	session.transport.Shutdown()
-}
 
-// AttachListener sets listener for received packets
-func (session *Session) AttachListener(listener MessageListener) {
-	session.config.Listener = listener
+	logger.Debug("[", session.id, "] Session closed. Reason:", reason)
+
+	if session.config.Listener != nil {
+		session.config.Listener.OnClose(session)
+	}
 }
 
 // ID returns the session ID
@@ -93,12 +98,23 @@ func (session *Session) Expired() bool {
 func (session *Session) handshake() {
 	packet := createHandshakePacket(session.id, session.config)
 
-	session.Send(packet)
+	err := session.Send(packet)
+
+	if err != nil {
+		logger.Error("[", session.id, "] Handshake error:", err)
+		return
+	}
+
+	logger.Debug("[", session.id, "] Handshake")
 
 	session.state = active
 	session.ping()
 
 	go session.receivePackets()
+
+	if session.config.Listener != nil {
+		session.config.Listener.OnOpen(session)
+	}
 }
 
 func (session *Session) ping() {
@@ -110,7 +126,8 @@ func (session *Session) receivePackets() {
 		received, err := session.transport.Receive()
 
 		if err != nil {
-			session.Close()
+			logger.Error("[", session.id, "] Packet receiving error:", err)
+			session.Close(err)
 			break
 		}
 
@@ -118,14 +135,17 @@ func (session *Session) receivePackets() {
 
 		switch received.Type {
 		case packet.Ping:
+			logger.Debug("[", session.id, "] Ping received")
+			logger.Debug("[", session.id, "] Sending pong")
+
 			session.Send(packet.NewPong(nil))
 		case packet.Close:
-			session.Close()
+			session.Close("close packet received")
 		case packet.Message:
-			listener := session.config.Listener
+			logger.Debug("[", session.id, "] Message received:", received.Data)
 
-			if listener != nil {
-				listener.OnMessage(session, received)
+			if session.config.Listener != nil {
+				session.config.Listener.OnMessage(session, received)
 			}
 		}
 	}

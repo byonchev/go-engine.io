@@ -89,7 +89,7 @@ func (transport *XHR) read(reader io.Reader) {
 	payload, err := transport.codec.Decode(reader)
 
 	if err != nil {
-		logger.Error("error while receiving messages:", err)
+		logger.Error("Error decoding messages:", err)
 		return
 	}
 
@@ -108,7 +108,7 @@ func (transport *XHR) write(writer io.Writer) {
 	err := transport.codec.Encode(payload, writer)
 
 	if err != nil {
-		logger.Error("error while sending messages:", err)
+		logger.Error("Error encoding messages:", err)
 		return
 	}
 }

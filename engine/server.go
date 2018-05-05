@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/byonchev/go-engine.io/logger"
 	"github.com/byonchev/go-engine.io/session"
 )
 
@@ -13,14 +14,12 @@ import (
 type Server struct {
 	sync.RWMutex
 
-	config  Config
+	config  session.Config
 	clients map[string]*session.Session
-
-	listener Listener
 }
 
 // NewServer creates a new engine server
-func NewServer(config Config) *Server {
+func NewServer(config session.Config) *Server {
 	server := &Server{
 		config:  config,
 		clients: make(map[string]*session.Session),
@@ -45,23 +44,11 @@ func (server *Server) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 	}
 
 	if client == nil {
-		// TODO: no session error
+		logger.Error("[", sessionID, "] Invalid session")
 		return
 	}
 
 	client.HandleRequest(writer, request)
-}
-
-// AttachListener sets listener for server events
-func (server *Server) AttachListener(listener Listener) {
-	server.listener = listener
-
-	server.RLock()
-	defer server.RUnlock()
-
-	for _, session := range server.clients {
-		session.AttachListener(listener)
-	}
 }
 
 func (server *Server) checkPing() {
@@ -74,13 +61,9 @@ func (server *Server) checkPing() {
 
 		for id, session := range server.clients {
 			if session.Expired() {
-				session.Close()
+				session.Close("expired")
 
 				delete(server.clients, id)
-
-				if server.listener != nil {
-					server.listener.OnClose(session)
-				}
 			}
 		}
 
@@ -89,23 +72,14 @@ func (server *Server) checkPing() {
 }
 
 func (server *Server) createSession(params url.Values) *session.Session {
-	sid := server.config.SIDGenerator.Generate()
-
-	config := session.Config{
-		PingSettings: server.config.PingSettings,
-		Listener:     server.listener,
-	}
-
-	session := session.NewSession(sid, config)
+	session := session.NewSession(server.config)
 
 	server.Lock()
 	defer server.Unlock()
 
-	server.clients[sid] = session
+	server.clients[session.ID()] = session
 
-	if server.listener != nil {
-		server.listener.OnOpen(session)
-	}
+	logger.Debug("[", session.ID(), "] Session created")
 
 	return session
 }

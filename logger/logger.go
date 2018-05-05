@@ -20,7 +20,7 @@ func Debug(data ...interface{}) {
 		return
 	}
 
-	loggerInstance.Debug(data)
+	loggerInstance.Debug(data...)
 }
 
 // Info logs message with INFO verbosity
@@ -29,7 +29,7 @@ func Info(data ...interface{}) {
 		return
 	}
 
-	loggerInstance.Info(data)
+	loggerInstance.Info(data...)
 }
 
 // Error logs message with ERROR verbosity
@@ -38,5 +38,5 @@ func Error(data ...interface{}) {
 		return
 	}
 
-	loggerInstance.Error(data)
+	loggerInstance.Error(data...)
 }

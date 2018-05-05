@@ -1,10 +1,13 @@
 package session
 
-import "github.com/byonchev/go-engine.io/config"
+import (
+	"time"
+)
 
 // Config holds the configuration for a single session
 type Config struct {
-	config.PingSettings
+	PingInterval time.Duration
+	PingTimeout  time.Duration
 
-	Listener MessageListener
+	Listener Listener
 }
