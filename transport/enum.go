@@ -1,6 +1,6 @@
 package transport
 
-type Type = string
+type Type string
 
 const (
 	WebSocketType Type = "websocket"

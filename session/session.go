@@ -48,7 +48,7 @@ func (session *Session) HandleRequest(writer http.ResponseWriter, request *http.
 	defer request.Body.Close()
 
 	query := request.URL.Query()
-	requestedTransport := query.Get("transport")
+	requestedTransport := transport.Type(query.Get("transport"))
 
 	if session.transport == nil {
 		session.transport = transport.NewTransport(requestedTransport)
