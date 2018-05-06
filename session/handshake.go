@@ -5,21 +5,22 @@ import (
 	"time"
 
 	"github.com/byonchev/go-engine.io/packet"
+	"github.com/byonchev/go-engine.io/transport"
 )
 
 type handshakeMessage struct {
-	SessionID    string   `json:"sid"`
-	Upgrades     []string `json:"upgrades"`
-	PingTimeout  int64    `json:"pingTimeout"`
-	PingInterval int64    `json:"pingInterval"`
+	SessionID    string           `json:"sid"`
+	Upgrades     []transport.Type `json:"upgrades"`
+	PingTimeout  int64            `json:"pingTimeout"`
+	PingInterval int64            `json:"pingInterval"`
 }
 
-func createHandshakePacket(sid string, config Config) packet.Packet {
+func createHandshakePacket(sid string, transportType transport.Type, config Config) packet.Packet {
 	handshake := handshakeMessage{
 		SessionID:    sid,
 		PingInterval: int64(config.PingInterval / time.Millisecond),
 		PingTimeout:  int64(config.PingTimeout / time.Millisecond),
-		Upgrades:     []string{},
+		Upgrades:     transport.Upgrades[transportType],
 	}
 
 	json, _ := json.Marshal(handshake)

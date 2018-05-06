@@ -3,6 +3,7 @@ package session
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -19,7 +20,8 @@ type Session struct {
 	config    Config
 	transport transport.Transport
 
-	state state
+	handshaked bool
+	closed     bool
 
 	sending sync.WaitGroup
 
@@ -35,26 +37,43 @@ func NewSession(config Config) *Session {
 		id:     id,
 		config: config,
 
-		transport: transport.NewXHR(),
-		state:     new,
+		handshaked: false,
+		closed:     false,
 	}
 }
 
 // HandleRequest is the bridge between the engine.io endpoint and the selected transport
+// TODO: Refactor
 func (session *Session) HandleRequest(writer http.ResponseWriter, request *http.Request) {
-	if session.state == new {
-		session.handshake()
-	}
-
 	defer request.Body.Close()
 
-	session.transport.HandleRequest(writer, request)
+	query := request.URL.Query()
+	requestedTransport := query.Get("transport")
+
+	if session.transport == nil {
+		session.transport = transport.NewTransport(requestedTransport)
+	}
+
+	if !session.handshaked {
+		if session.transport.Type() == transport.PollingType {
+			session.handshake()
+		} else {
+			defer session.handshake()
+		}
+	}
+
+	if requestedTransport != session.transport.Type() {
+		newTransport := transport.NewTransport(requestedTransport)
+		session.upgrade(writer, request, newTransport)
+	} else {
+		session.transport.HandleRequest(writer, request)
+	}
 }
 
-// Send enqueues packets for sending (non-blocking)
+// Send enqueues packets for sending
 func (session *Session) Send(packet packet.Packet) error {
-	if session.state == closed {
-		return errors.New("send on closed session")
+	if session.closed {
+		return errors.New("session closed")
 	}
 
 	session.sending.Add(1)
@@ -66,11 +85,11 @@ func (session *Session) Send(packet packet.Packet) error {
 
 // Close changes the session state and closes the channels
 func (session *Session) Close(reason interface{}) {
-	if session.state == closed {
+	if session.closed {
 		return
 	}
 
-	session.state = closed
+	session.closed = true
 
 	session.sending.Wait()
 	session.transport.Shutdown()
@@ -78,7 +97,7 @@ func (session *Session) Close(reason interface{}) {
 	logger.Debug("[", session.id, "] Session closed. Reason:", reason)
 
 	if session.config.Listener != nil {
-		session.config.Listener.OnClose(session)
+		go session.config.Listener.OnClose(session)
 	}
 }
 
@@ -92,11 +111,11 @@ func (session *Session) Expired() bool {
 	now := time.Now()
 	threshold := session.config.PingInterval + session.config.PingTimeout
 
-	return session.state == closed || session.lastPingTime.Add(threshold).Before(now)
+	return session.closed || session.lastPingTime.Add(threshold).Before(now)
 }
 
 func (session *Session) handshake() {
-	packet := createHandshakePacket(session.id, session.config)
+	packet := createHandshakePacket(session.id, session.transport.Type(), session.config)
 
 	err := session.Send(packet)
 
@@ -105,15 +124,15 @@ func (session *Session) handshake() {
 		return
 	}
 
-	logger.Debug("[", session.id, "] Handshake")
+	logger.Debug("[", session.id, "] Handshaked")
 
-	session.state = active
+	session.handshaked = true
 	session.ping()
 
 	go session.receivePackets()
 
 	if session.config.Listener != nil {
-		session.config.Listener.OnOpen(session)
+		go session.config.Listener.OnOpen(session)
 	}
 }
 
@@ -122,31 +141,78 @@ func (session *Session) ping() {
 }
 
 func (session *Session) receivePackets() {
-	for session.state != closed {
+	for !session.closed {
 		received, err := session.transport.Receive()
 
 		if err != nil {
-			logger.Error("[", session.id, "] Packet receiving error:", err)
-			session.Close(err)
-			break
+			continue
 		}
 
 		session.ping()
 
 		switch received.Type {
 		case packet.Ping:
-			logger.Debug("[", session.id, "] Ping received")
-			logger.Debug("[", session.id, "] Sending pong")
-
-			session.Send(packet.NewPong(nil))
+			session.handlePing(received)
 		case packet.Close:
-			session.Close("close packet received")
+			session.handleClose(received)
 		case packet.Message:
-			logger.Debug("[", session.id, "] Message received:", received.Data)
-
-			if session.config.Listener != nil {
-				session.config.Listener.OnMessage(session, received)
-			}
+			session.handleMessage(received)
 		}
 	}
+}
+
+func (session *Session) handlePing(ping packet.Packet) {
+	logger.Debug("[", session.id, "] Ping received")
+	logger.Debug("[", session.id, "] Sending pong")
+
+	session.Send(packet.NewPong(ping.Data))
+}
+
+func (session *Session) handleClose(close packet.Packet) {
+	session.Close("close packet received")
+}
+
+func (session *Session) handleMessage(message packet.Packet) {
+	logger.Debug("[", session.id, "] Message received:", message.Data)
+
+	if session.config.Listener != nil {
+		go session.config.Listener.OnMessage(session, message)
+	}
+}
+
+func (session *Session) upgrade(writer http.ResponseWriter, request *http.Request, target transport.Transport) error {
+	// TODO: Error
+	target.HandleRequest(writer, request)
+
+	fmt.Println("upgrading")
+
+	for {
+		received, err := target.Receive()
+
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("packet received on upgrade sequence", received)
+
+		if received.Type == packet.Ping && string(received.Data) == "probe" {
+			err := target.Send(packet.NewPong(received.Data))
+
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("sent pong probe")
+
+			session.transport.Send(packet.NewNOOP())
+		} else if received.Type == packet.Upgrade {
+			fmt.Println("upgraded")
+			session.transport.Shutdown()
+			session.transport = target
+			break
+			// upgrade received
+		}
+	}
+
+	return errors.New("upgrade failed")
 }

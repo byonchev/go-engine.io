@@ -79,10 +79,17 @@ func (transport *XHR) Shutdown() {
 
 	transport.running = false
 
+	transport.Send(packet.NewNOOP())
+
 	transport.receiving.Wait()
 	transport.buffer.Close()
 
 	close(transport.received)
+}
+
+// Type returns the transport type
+func (transport *XHR) Type() Type {
+	return PollingType
 }
 
 func (transport *XHR) read(reader io.Reader) {
