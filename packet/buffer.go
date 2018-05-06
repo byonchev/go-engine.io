@@ -9,15 +9,17 @@ type Buffer struct {
 	writeLock sync.Mutex
 	flushLock sync.Mutex
 
+	flushLimit int
+
 	payload Payload
 
 	flushable bool
 	closed    bool
 }
 
-// NewBuffer returns new packet buffer with fixed size
-func NewBuffer() *Buffer {
-	buffer := &Buffer{closed: false, flushable: false}
+// NewBuffer returns new packet buffer with fixed flush limit
+func NewBuffer(flushLimit int) *Buffer {
+	buffer := &Buffer{flushLimit: flushLimit, closed: false, flushable: false}
 	buffer.flushLock.Lock()
 
 	return buffer
@@ -81,16 +83,28 @@ func (buffer *Buffer) Close() {
 // If the buffer is empty, it blocks until at least one packet is present
 func (buffer *Buffer) Flush() Payload {
 	if !buffer.closed {
-		buffer.flushable = false
 		buffer.flushLock.Lock()
+		buffer.flushable = false
 	}
 
 	buffer.writeLock.Lock()
 	defer buffer.writeLock.Unlock()
 
-	payload := buffer.payload
+	length := len(buffer.payload)
+	limit := length
 
-	buffer.payload = nil
+	if buffer.flushLimit > 0 && buffer.flushLimit < length {
+		limit = buffer.flushLimit
+	}
+
+	if limit < length && !buffer.flushable {
+		buffer.flushable = true
+		buffer.flushLock.Unlock()
+	}
+
+	payload := buffer.payload[:limit]
+
+	buffer.payload = buffer.payload[limit:]
 
 	return payload
 }

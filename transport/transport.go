@@ -30,7 +30,7 @@ func NewTransport(transportType Type) Transport {
 	case WebSocketType:
 		return NewWebSocket()
 	case PollingType:
-		return NewXHR()
+		return NewXHR(10, 10) // TODO: Configuration
 	default:
 		return nil
 	}

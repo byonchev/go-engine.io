@@ -13,11 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const waitTime = 100 * time.Millisecond
-
 func TestXHRSendBufferedPayload(t *testing.T) {
 	codec := codec.XHR{}
-	transport := transport.NewXHR()
+	transport := transport.NewXHR(0, 0)
 
 	packets := []packet.Packet{
 		packet.NewStringMessage("hello"),
@@ -27,9 +25,6 @@ func TestXHRSendBufferedPayload(t *testing.T) {
 	for _, packet := range packets {
 		transport.Send(packet)
 	}
-
-	// ensure all packets are buffered
-	time.Sleep(waitTime)
 
 	received := <-clientReceive(transport)
 
@@ -41,15 +36,11 @@ func TestXHRSendBufferedPayload(t *testing.T) {
 
 func TestXHRSendPayloadAfterRequest(t *testing.T) {
 	codec := codec.XHR{}
-	transport := transport.NewXHR()
+	transport := transport.NewXHR(0, 0)
 
 	sent := packet.NewClose()
 
-	go func() {
-		// ensure http request is sent
-		time.Sleep(waitTime)
-		transport.Send(sent)
-	}()
+	transport.Send(sent)
 
 	received := <-clientReceive(transport)
 
@@ -60,7 +51,7 @@ func TestXHRSendPayloadAfterRequest(t *testing.T) {
 }
 
 func TestXHRSendAndShutdown(t *testing.T) {
-	transport := transport.NewXHR()
+	transport := transport.NewXHR(0, 0)
 
 	transport.Send(packet.NewNOOP())
 	transport.Shutdown()
@@ -73,7 +64,7 @@ func TestXHRSendAndShutdown(t *testing.T) {
 
 func TestXHRReceivePayload(t *testing.T) {
 	codec := codec.XHR{}
-	transport := transport.NewXHR()
+	transport := transport.NewXHR(0, 10)
 
 	payload := packet.Payload{
 		packet.NewStringMessage("hello"),
@@ -96,21 +87,16 @@ func TestXHRReceivePayload(t *testing.T) {
 
 func TestXHRReceiveAndShutdown(t *testing.T) {
 	codec := codec.XHR{}
-	transport := transport.NewXHR()
+	transport := transport.NewXHR(0, 10)
 
 	sent := packet.NewNOOP()
 
-	go func() {
-		var buffer bytes.Buffer
+	var buffer bytes.Buffer
 
-		codec.Encode(packet.Payload{sent}, &buffer)
+	codec.Encode(packet.Payload{sent}, &buffer)
 
-		clientSend(transport, &buffer)
-		transport.Shutdown()
-	}()
-
-	// ensure packet is buffered and shutdown sequence is initiated
-	time.Sleep(waitTime)
+	clientSend(transport, &buffer)
+	transport.Shutdown()
 
 	expected := sent
 	actual, err := transport.Receive()
@@ -120,7 +106,7 @@ func TestXHRReceiveAndShutdown(t *testing.T) {
 }
 
 func TestXHRInvalidHTTPMethod(t *testing.T) {
-	transport := transport.NewXHR()
+	transport := transport.NewXHR(0, 0)
 
 	request, _ := http.NewRequest("DELETE", "/", nil)
 	writer := httptest.NewRecorder()
@@ -131,7 +117,7 @@ func TestXHRInvalidHTTPMethod(t *testing.T) {
 }
 
 func TestXHRReceiveInvalidPayload(t *testing.T) {
-	transport := transport.NewXHR()
+	transport := transport.NewXHR(0, 0)
 
 	buffer := bytes.NewBuffer([]byte("INVALID:INVALID"))
 
@@ -164,9 +150,7 @@ func clientSend(transport transport.Transport, buffer *bytes.Buffer) {
 	request, _ := http.NewRequest("POST", "/", buffer)
 	writer := httptest.NewRecorder()
 
-	go func() {
-		transport.HandleRequest(writer, request)
-	}()
+	transport.HandleRequest(writer, request)
 
 	time.Sleep(100 * time.Millisecond)
 }

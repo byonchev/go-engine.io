@@ -9,7 +9,7 @@ import (
 )
 
 func TestBufferPopSingle(t *testing.T) {
-	buffer := packet.NewBuffer()
+	buffer := packet.NewBuffer(0)
 
 	expected := packet.NewPong(nil)
 
@@ -21,7 +21,7 @@ func TestBufferPopSingle(t *testing.T) {
 }
 
 func TestBufferPopMultiple(t *testing.T) {
-	buffer := packet.NewBuffer()
+	buffer := packet.NewBuffer(0)
 
 	p1 := packet.NewOpen(nil)
 	p2 := packet.NewPong(nil)
@@ -39,7 +39,7 @@ func TestBufferPopMultiple(t *testing.T) {
 }
 
 func TestBufferPopWait(t *testing.T) {
-	buffer := packet.NewBuffer()
+	buffer := packet.NewBuffer(0)
 
 	flushed := false
 
@@ -54,7 +54,7 @@ func TestBufferPopWait(t *testing.T) {
 }
 
 func TestBufferFlush(t *testing.T) {
-	buffer := packet.NewBuffer()
+	buffer := packet.NewBuffer(0)
 
 	p1 := packet.NewPong(nil)
 	p2 := packet.NewStringMessage("hello")
@@ -69,8 +69,28 @@ func TestBufferFlush(t *testing.T) {
 	assert.Equal(t, expected, actual, "flush doesn't return buffered packets")
 }
 
+func TestBufferFlushLimit(t *testing.T) {
+	buffer := packet.NewBuffer(1)
+
+	p1 := packet.NewPong(nil)
+	p2 := packet.NewStringMessage("hello")
+
+	buffer.Add(p1)
+	buffer.Add(p2)
+
+	expected := packet.Payload{p1}
+	actual := buffer.Flush()
+
+	assert.Equal(t, expected, actual, "flush doesn't limit buffered packets")
+
+	expected = packet.Payload{p2}
+	actual = buffer.Flush()
+
+	assert.Equal(t, expected, actual, "invalid flush limit offset")
+}
+
 func TestBufferFlushAdd(t *testing.T) {
-	buffer := packet.NewBuffer()
+	buffer := packet.NewBuffer(0)
 
 	p1 := packet.NewPong(nil)
 
@@ -89,7 +109,7 @@ func TestBufferFlushAdd(t *testing.T) {
 }
 
 func TestBufferCloseSinglePacket(t *testing.T) {
-	buffer := packet.NewBuffer()
+	buffer := packet.NewBuffer(0)
 
 	p1 := packet.NewPong(nil)
 
@@ -104,7 +124,7 @@ func TestBufferCloseSinglePacket(t *testing.T) {
 }
 
 func TestBufferCloseMultiplePackets(t *testing.T) {
-	buffer := packet.NewBuffer()
+	buffer := packet.NewBuffer(0)
 
 	p1 := packet.NewPong(nil)
 	p2 := packet.NewStringMessage("hello")
@@ -124,7 +144,7 @@ func TestBufferCloseMultiplePackets(t *testing.T) {
 }
 
 func TestBufferFlushWait(t *testing.T) {
-	buffer := packet.NewBuffer()
+	buffer := packet.NewBuffer(0)
 
 	flushed := false
 

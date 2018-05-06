@@ -24,11 +24,11 @@ type XHR struct {
 }
 
 // NewXHR creates new XHR transport
-func NewXHR() *XHR {
+func NewXHR(bufferFlushLimit int, receiveBufferSize int) *XHR {
 	transport := &XHR{
 		codec:    codec.XHR{},
-		buffer:   packet.NewBuffer(),
-		received: make(chan packet.Packet),
+		buffer:   packet.NewBuffer(bufferFlushLimit),
+		received: make(chan packet.Packet, receiveBufferSize),
 		running:  true,
 	}
 
