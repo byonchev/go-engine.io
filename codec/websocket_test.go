@@ -87,6 +87,12 @@ func TestWebSocketDecode(t *testing.T) {
 				packet.NewBinaryMessage([]byte{0, 1}),
 			},
 		},
+		{
+			[]byte{'1'},
+			packet.Payload{
+				packet.NewClose(),
+			},
+		},
 	}
 
 	for _, test := range tests {

@@ -3,6 +3,7 @@ package transport
 import (
 	"errors"
 	"net/http"
+	"sync"
 
 	"github.com/byonchev/go-engine.io/codec"
 	"github.com/byonchev/go-engine.io/logger"
@@ -11,6 +12,8 @@ import (
 )
 
 type WebSocket struct {
+	writeLock sync.Mutex
+
 	running bool
 
 	socket *websocket.Conn
@@ -54,6 +57,9 @@ func (transport *WebSocket) Shutdown() {
 
 // Send writes packet to the client socket
 func (transport *WebSocket) Send(message packet.Packet) error {
+	transport.writeLock.Lock()
+	defer transport.writeLock.Unlock()
+
 	if !transport.running {
 		return errors.New("transport not running")
 	}
