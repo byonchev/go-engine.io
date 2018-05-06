@@ -55,8 +55,8 @@ func (buffer *Buffer) Pop() Packet {
 		buffer.flushable = false
 	}
 
-	packet := buffer.payload[length-1]
-	buffer.payload = buffer.payload[:length-1]
+	packet := buffer.payload[0]
+	buffer.payload = buffer.payload[1:]
 
 	return packet
 }

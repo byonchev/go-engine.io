@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBufferPop(t *testing.T) {
+func TestBufferPopSingle(t *testing.T) {
 	buffer := packet.NewBuffer()
 
 	expected := packet.NewPong(nil)
@@ -18,6 +18,39 @@ func TestBufferPop(t *testing.T) {
 	actual := buffer.Pop()
 
 	assert.Equal(t, expected, actual, "packet was not added to the buffer")
+}
+
+func TestBufferPopMultiple(t *testing.T) {
+	buffer := packet.NewBuffer()
+
+	p1 := packet.NewOpen(nil)
+	p2 := packet.NewPong(nil)
+
+	buffer.Add(p1)
+	buffer.Add(p2)
+
+	actual := buffer.Pop()
+
+	assert.Equal(t, p1, actual, "first packet was not added to the buffer")
+
+	actual = buffer.Pop()
+
+	assert.Equal(t, p2, actual, "second packet was not added to the buffer")
+}
+
+func TestBufferPopWait(t *testing.T) {
+	buffer := packet.NewBuffer()
+
+	flushed := false
+
+	go func() {
+		buffer.Pop()
+		flushed = true
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+
+	assert.False(t, flushed, "buffer pop doesn't wait for at least one packet to be added")
 }
 
 func TestBufferFlush(t *testing.T) {
@@ -81,6 +114,7 @@ func TestBufferCloseMultiplePackets(t *testing.T) {
 	buffer.Add(p2)
 	buffer.Close()
 	buffer.Add(p3)
+	buffer.Close()
 
 	expected := packet.Payload{p1, p2}
 
@@ -89,7 +123,7 @@ func TestBufferCloseMultiplePackets(t *testing.T) {
 	assert.Equal(t, expected, actual, "invalid packets in closed buffer")
 }
 
-func TestBufferWait(t *testing.T) {
+func TestBufferFlushWait(t *testing.T) {
 	buffer := packet.NewBuffer()
 
 	flushed := false
@@ -101,5 +135,5 @@ func TestBufferWait(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	assert.True(t, !flushed, "buffer flush doesn't wait for at least one packet to be added")
+	assert.False(t, flushed, "buffer flush doesn't wait for at least one packet to be added")
 }
