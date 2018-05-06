@@ -8,51 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBufferPopSingle(t *testing.T) {
-	buffer := packet.NewBuffer(0)
-
-	expected := packet.NewPong(nil)
-
-	buffer.Add(expected)
-
-	actual := buffer.Pop()
-
-	assert.Equal(t, expected, actual, "packet was not added to the buffer")
-}
-
-func TestBufferPopMultiple(t *testing.T) {
-	buffer := packet.NewBuffer(0)
-
-	p1 := packet.NewOpen(nil)
-	p2 := packet.NewPong(nil)
-
-	buffer.Add(p1)
-	buffer.Add(p2)
-
-	actual := buffer.Pop()
-
-	assert.Equal(t, p1, actual, "first packet was not added to the buffer")
-
-	actual = buffer.Pop()
-
-	assert.Equal(t, p2, actual, "second packet was not added to the buffer")
-}
-
-func TestBufferPopWait(t *testing.T) {
-	buffer := packet.NewBuffer(0)
-
-	flushed := false
-
-	go func() {
-		buffer.Pop()
-		flushed = true
-	}()
-
-	time.Sleep(100 * time.Millisecond)
-
-	assert.False(t, flushed, "buffer pop doesn't wait for at least one packet to be added")
-}
-
 func TestBufferFlush(t *testing.T) {
 	buffer := packet.NewBuffer(0)
 
@@ -108,6 +63,21 @@ func TestBufferFlushAdd(t *testing.T) {
 	assert.Equal(t, expected, actual, "flush doesn't return buffered packets")
 }
 
+func TestBufferFlushWait(t *testing.T) {
+	buffer := packet.NewBuffer(0)
+
+	flushed := false
+
+	go func() {
+		buffer.Flush()
+		flushed = true
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+
+	assert.False(t, flushed, "buffer flush doesn't wait for at least one packet to be added")
+}
+
 func TestBufferCloseSinglePacket(t *testing.T) {
 	buffer := packet.NewBuffer(0)
 
@@ -143,17 +113,43 @@ func TestBufferCloseMultiplePackets(t *testing.T) {
 	assert.Equal(t, expected, actual, "invalid packets in closed buffer")
 }
 
-func TestBufferFlushWait(t *testing.T) {
-	buffer := packet.NewBuffer(0)
+func TestBufferCloseLimit(t *testing.T) {
+	buffer := packet.NewBuffer(1)
 
-	flushed := false
+	p1 := packet.NewStringMessage("hello")
+	p2 := packet.NewStringMessage("world")
+
+	buffer.Add(p1)
+	buffer.Add(p2)
+	buffer.Close()
+
+	expected := packet.Payload{p1, p2}
+
+	actual := buffer.Flush()
+
+	assert.Equal(t, expected, actual, "limited flush in closed buffer")
+}
+
+func BenchmarkBufferAdd(b *testing.B) {
+	buffer := packet.NewBuffer(10)
+
+	for i := 0; i < b.N; i++ {
+		buffer.Add(packet.NewNOOP())
+	}
+}
+
+func BenchmarkBufferFlush(b *testing.B) {
+	buffer := packet.NewBuffer(1)
+
+	packet := packet.NewNOOP()
 
 	go func() {
-		buffer.Flush()
-		flushed = true
+		for {
+			buffer.Add(packet)
+		}
 	}()
 
-	time.Sleep(100 * time.Millisecond)
-
-	assert.False(t, flushed, "buffer flush doesn't wait for at least one packet to be added")
+	for i := 0; i < b.N; i++ {
+		buffer.Flush()
+	}
 }
