@@ -11,8 +11,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// WebSocket handles protocol upgrade and transmission over websockets
 type WebSocket struct {
 	writeLock sync.Mutex
+	readLock  sync.Mutex
 
 	running bool
 
@@ -33,6 +35,9 @@ func NewWebSocket() *WebSocket {
 
 // HandleRequest handles WebSocket upgrade request
 func (transport *WebSocket) HandleRequest(writer http.ResponseWriter, request *http.Request) {
+	transport.lock()
+	defer transport.unlock()
+
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024, // TODO: Configuration!
 		WriteBufferSize: 1024,
@@ -51,6 +56,9 @@ func (transport *WebSocket) HandleRequest(writer http.ResponseWriter, request *h
 
 // Shutdown closes the client socket
 func (transport *WebSocket) Shutdown() {
+	transport.lock()
+	defer transport.unlock()
+
 	transport.running = false
 	transport.socket.Close()
 }
@@ -91,6 +99,9 @@ func (transport *WebSocket) Send(message packet.Packet) error {
 
 // Receive receives the next packet from the client socket
 func (transport *WebSocket) Receive() (packet.Packet, error) {
+	transport.readLock.Lock()
+	defer transport.readLock.Unlock()
+
 	if !transport.running {
 		return packet.Packet{}, errors.New("transport not running")
 	}
@@ -122,4 +133,14 @@ func (transport *WebSocket) Receive() (packet.Packet, error) {
 // Type returns the transport type
 func (transport *WebSocket) Type() Type {
 	return WebSocketType
+}
+
+func (transport *WebSocket) lock() {
+	transport.readLock.Lock()
+	transport.writeLock.Lock()
+}
+
+func (transport *WebSocket) unlock() {
+	transport.readLock.Unlock()
+	transport.writeLock.Unlock()
 }
