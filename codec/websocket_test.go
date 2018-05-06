@@ -60,6 +60,14 @@ func TestWebSocketEncode(t *testing.T) {
 	}
 }
 
+func TestWebSocketEncodeWriterError(t *testing.T) {
+	codec := codec.WebSocket{}
+
+	err := codec.Encode(packet.Payload{packet.NewNOOP()}, errorWriter{})
+
+	assert.Error(t, err, "reader error was expected")
+}
+
 func TestWebSocketDecode(t *testing.T) {
 	codec := codec.WebSocket{}
 
@@ -103,6 +111,14 @@ func TestWebSocketDecodeErrors(t *testing.T) {
 
 	assert.Empty(t, payload, "decoded invalid payload was not empty")
 	assert.Error(t, err)
+}
+
+func TestWebSocketDecodeReaderError(t *testing.T) {
+	codec := codec.WebSocket{}
+
+	_, err := codec.Decode(errorReader{})
+
+	assert.Error(t, err, "reader error was expected")
 }
 
 func BenchmarkWebSocketEncode(b *testing.B) {

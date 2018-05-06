@@ -57,6 +57,14 @@ func TestXHREncode(t *testing.T) {
 	}
 }
 
+func TestXHREncodeWriterError(t *testing.T) {
+	codec := codec.XHR{}
+
+	err := codec.Encode(packet.Payload{packet.NewNOOP()}, &errorWriter{})
+
+	assert.Error(t, err, "writer error was expected")
+}
+
 func TestXHRDecode(t *testing.T) {
 	codec := codec.XHR{}
 
@@ -118,6 +126,14 @@ func TestXHRDecodeErrors(t *testing.T) {
 		assert.Empty(t, payload, "decoded invalid payload was not empty")
 		assert.Error(t, err, "error was expected for decoding "+string(test))
 	}
+}
+
+func TestXHRDecodeReaderError(t *testing.T) {
+	codec := codec.XHR{}
+
+	_, err := codec.Decode(errorReader{})
+
+	assert.Error(t, err, "reader error was expected")
 }
 
 func BenchmarkXHREncode(b *testing.B) {
