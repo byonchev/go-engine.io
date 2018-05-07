@@ -18,47 +18,108 @@ func TestWebSocketSend(t *testing.T) {
 	codec, transport, server, client := setupWebSockets()
 	defer server.Close()
 
-	expected := packet.NewClose()
+	tests := []struct {
+		packet      packet.Packet
+		messageType int
+	}{
+		{
+			packet.NewStringMessage("Hello"),
+			websocket.TextMessage,
+		},
+		{
+			packet.NewBinaryMessage([]byte("world")),
+			websocket.BinaryMessage,
+		},
+	}
 
-	transport.Send(expected)
+	for _, test := range tests {
+		transport.Send(test.packet)
 
-	_, data, _ := client.ReadMessage()
+		messageType, data, _ := client.ReadMessage()
 
-	payload, _ := codec.Decode(bytes.NewBuffer(data))
+		payload, _ := codec.Decode(bytes.NewBuffer(data))
 
-	assert.Equal(t, payload[0], expected, "packet was not received by client")
+		assert.Equal(t, test.messageType, messageType, "wrong message type received by client")
+		assert.Equal(t, packet.Payload{test.packet}, payload, "packet was not received by client")
+	}
 }
 
 func TestWebSocketReceive(t *testing.T) {
 	codec, transport, server, client := setupWebSockets()
 	defer server.Close()
 
-	expected := packet.NewStringMessage("Test")
+	tests := []struct {
+		packet      packet.Packet
+		messageType int
+	}{
+		{
+			packet.NewStringMessage("Hello"),
+			websocket.TextMessage,
+		},
+		{
+			packet.NewBinaryMessage([]byte("world")),
+			websocket.BinaryMessage,
+		},
+	}
 
-	var buffer bytes.Buffer
+	for _, test := range tests {
+		var buffer bytes.Buffer
 
-	codec.Encode(packet.Payload{expected}, &buffer)
-	client.WriteMessage(websocket.TextMessage, buffer.Bytes())
+		codec.Encode(packet.Payload{test.packet}, &buffer)
+		client.WriteMessage(test.messageType, buffer.Bytes())
 
-	actual, _ := transport.Receive()
+		actual, _ := transport.Receive()
 
-	assert.Equal(t, expected, actual, "packet was not received from client")
+		assert.Equal(t, test.packet, actual, "packet was not received from client")
+	}
 }
 
-func TestWebSocketShutdown(t *testing.T) {
+func TestWebSocketSendAfterShutdown(t *testing.T) {
 	_, transport, server, client := setupWebSockets()
 	defer server.Close()
 
 	transport.Shutdown()
-	transport.Send(packet.NewNOOP())
+	err := transport.Send(packet.NewNOOP())
 
 	expected := []byte(nil)
 	_, actual, _ := client.ReadMessage()
 
-	assert.Equal(t, expected, actual, "packets were sent to the client after shutdown")
+	assert.Error(t, err, "error was not returned after send on stopped transport")
+	assert.Equal(t, expected, actual, "packet was sent to the client after shutdown")
 }
 
-func createServer(transport transport.Transport) *httptest.Server {
+func TestWebSocketReceiveAfterShutdown(t *testing.T) {
+	codec, transport, server, client := setupWebSockets()
+	defer server.Close()
+
+	var buffer bytes.Buffer
+
+	codec.Encode(packet.Payload{packet.NewNOOP()}, &buffer)
+	client.WriteMessage(websocket.TextMessage, buffer.Bytes())
+
+	transport.Shutdown()
+	actual, err := transport.Receive()
+
+	assert.Error(t, err, "error was not returned after receive on stopped transport")
+	assert.Equal(t, packet.Packet{}, actual, "packet was received from client after shutdown")
+}
+
+func TestWebSocketUpgradeError(t *testing.T) {
+	transport := createWebSocketTransport()
+
+	request, _ := http.NewRequest("POST", "/", nil)
+	writer := httptest.NewRecorder()
+
+	transport.HandleRequest(writer, request)
+
+	assert.Equal(t, http.StatusBadRequest, writer.Code, "upgrade failure doesn't return 400")
+}
+
+func createWebSocketTransport() *transport.WebSocket {
+	return transport.NewWebSocket()
+}
+
+func createServer(transport *transport.WebSocket) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(transport.HandleRequest))
 }
 
@@ -72,7 +133,7 @@ func connectClient(server *httptest.Server) *websocket.Conn {
 
 func setupWebSockets() (codec.Codec, *transport.WebSocket, *httptest.Server, *websocket.Conn) {
 	codec := codec.WebSocket{}
-	transport := transport.NewWebSocket()
+	transport := createWebSocketTransport()
 	server := createServer(transport)
 	client := connectClient(server)
 

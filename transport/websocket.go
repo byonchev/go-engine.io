@@ -46,7 +46,8 @@ func (transport *WebSocket) HandleRequest(writer http.ResponseWriter, request *h
 	socket, err := upgrader.Upgrade(writer, request, nil)
 
 	if err != nil {
-		logger.Error("Protocol upgrade error:", err)
+		logger.Error("WebSocket upgrade failed:", err)
+		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
