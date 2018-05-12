@@ -20,6 +20,8 @@ type Session struct {
 	config    Config
 	transport transport.Transport
 
+	events chan<- interface{}
+
 	handshaked bool
 	closed     bool
 
@@ -29,13 +31,15 @@ type Session struct {
 }
 
 // NewSession creates a new client session
-func NewSession(config Config) *Session {
+func NewSession(config Config, events chan<- interface{}) *Session {
 	uuid, _ := uuid.NewV4()
 	id := base64.URLEncoding.EncodeToString(uuid.Bytes())
 
 	return &Session{
 		id:     id,
 		config: config,
+
+		events: events,
 
 		handshaked: false,
 		closed:     false,
@@ -96,9 +100,7 @@ func (session *Session) Close(reason interface{}) {
 
 	logger.Debug("[", session.id, "] Session closed. Reason:", reason)
 
-	if session.config.Listener != nil {
-		go session.config.Listener.OnClose(session)
-	}
+	session.emit(DisconnectEvent{session.id})
 }
 
 // ID returns the session ID
@@ -131,9 +133,7 @@ func (session *Session) handshake() {
 
 	go session.receivePackets()
 
-	if session.config.Listener != nil {
-		go session.config.Listener.OnOpen(session)
-	}
+	session.emit(ConnectEvent{session.id})
 }
 
 func (session *Session) ping() {
@@ -175,9 +175,13 @@ func (session *Session) handleClose(close packet.Packet) {
 func (session *Session) handleMessage(message packet.Packet) {
 	logger.Debug("[", session.id, "] Message received:", message.Data)
 
-	if session.config.Listener != nil {
-		go session.config.Listener.OnMessage(session, message)
+	event := MessageEvent{
+		SessionID: session.id,
+		Binary:    message.Binary,
+		Data:      message.Data,
 	}
+
+	session.emit(event)
 }
 
 func (session *Session) upgrade(writer http.ResponseWriter, request *http.Request, target transport.Transport) error {
@@ -215,4 +219,10 @@ func (session *Session) upgrade(writer http.ResponseWriter, request *http.Reques
 	}
 
 	return errors.New("upgrade failed")
+}
+
+func (session *Session) emit(event interface{}) {
+	go func() {
+		session.events <- event
+	}()
 }

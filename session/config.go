@@ -20,6 +20,4 @@ type Config struct {
 	// Maximum received packets to be buffered
 	// before write polling requests are blocked
 	PollingBufferReceiveLimit int
-
-	Listener Listener
 }

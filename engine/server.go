@@ -16,6 +16,8 @@ type Server struct {
 
 	config  session.Config
 	clients map[string]*session.Session
+
+	events chan interface{}
 }
 
 // NewServer creates a new engine server
@@ -23,6 +25,7 @@ func NewServer(config session.Config) *Server {
 	server := &Server{
 		config:  config,
 		clients: make(map[string]*session.Session),
+		events:  make(chan interface{}),
 	}
 
 	go server.checkPing()
@@ -51,6 +54,11 @@ func (server *Server) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 	client.HandleRequest(writer, request)
 }
 
+// Events returns the channel for session events
+func (server *Server) Events() <-chan interface{} {
+	return server.events
+}
+
 func (server *Server) checkPing() {
 	interval := server.config.PingInterval + server.config.PingTimeout
 
@@ -72,7 +80,7 @@ func (server *Server) checkPing() {
 }
 
 func (server *Server) createSession(params url.Values) *session.Session {
-	session := session.NewSession(server.config)
+	session := session.NewSession(server.config, server.events)
 
 	server.Lock()
 	defer server.Unlock()
