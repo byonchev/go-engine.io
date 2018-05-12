@@ -110,7 +110,8 @@ func (transport *WebSocket) Receive() (packet.Packet, error) {
 	_, reader, err := transport.socket.NextReader()
 
 	if err != nil {
-		transport.Shutdown()
+		transport.running = false
+
 		return packet.Packet{}, err
 	}
 
