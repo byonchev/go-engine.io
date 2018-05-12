@@ -10,6 +10,10 @@ type Packet struct {
 // Payload is a collection of packets
 type Payload []Packet
 
+func (packet Packet) String() string {
+	return string(packet.Data)
+}
+
 // NewOpen creates new open packet
 func NewOpen(data []byte) Packet {
 	return Packet{false, Open, data}

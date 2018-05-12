@@ -98,7 +98,7 @@ func (session *Session) Close(reason interface{}) {
 	session.sending.Wait()
 	session.transport.Shutdown()
 
-	logger.Debug("[", session.id, "] Session closed. Reason:", reason)
+	session.debug("Session closed. Reason:", reason)
 
 	session.emit(DisconnectEvent{session.id})
 }
@@ -122,11 +122,11 @@ func (session *Session) handshake() {
 	err := session.Send(packet)
 
 	if err != nil {
-		logger.Error("[", session.id, "] Handshake error:", err)
+		logger.Error("Handshake error:", err, "for", packet)
 		return
 	}
 
-	logger.Debug("[", session.id, "] Handshaked")
+	session.debug("Session created")
 
 	session.handshaked = true
 	session.ping()
@@ -162,8 +162,8 @@ func (session *Session) receivePackets() {
 }
 
 func (session *Session) handlePing(ping packet.Packet) {
-	logger.Debug("[", session.id, "] Ping received")
-	logger.Debug("[", session.id, "] Sending pong")
+	session.debug("Ping received")
+	session.debug("Sending pong")
 
 	session.Send(packet.NewPong(ping.Data))
 }
@@ -173,7 +173,7 @@ func (session *Session) handleClose(close packet.Packet) {
 }
 
 func (session *Session) handleMessage(message packet.Packet) {
-	logger.Debug("[", session.id, "] Message received:", message.Data)
+	session.debug("Message received:", message.Data)
 
 	event := MessageEvent{
 		SessionID: session.id,
@@ -225,4 +225,14 @@ func (session *Session) emit(event interface{}) {
 	go func() {
 		session.events <- event
 	}()
+}
+
+func (session *Session) debug(data ...interface{}) {
+	prefix := []interface{}{
+		"[",
+		session.id,
+		"]",
+	}
+
+	logger.Debug(append(prefix, data...)...)
 }

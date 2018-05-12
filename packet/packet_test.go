@@ -83,3 +83,9 @@ func TestPacketTypes(t *testing.T) {
 		assert.Equal(t, test.expected, test.actual, "packet was not created properly")
 	}
 }
+
+func TestPacketToString(t *testing.T) {
+	packet := packet.NewStringMessage("hello")
+
+	assert.Equal(t, string(packet.Data), packet.String(), "packet was not converted to string properly")
+}

@@ -49,7 +49,7 @@ func (server *Server) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 	}
 
 	if client == nil {
-		logger.Error("[", sessionID, "] Invalid session")
+		logger.Error("Session", sessionID, "not found")
 		return
 	}
 
@@ -101,8 +101,6 @@ func (server *Server) createSession(params url.Values) *session.Session {
 	defer server.Unlock()
 
 	server.clients[session.ID()] = session
-
-	logger.Debug("[", session.ID(), "] Session created")
 
 	return session
 }
