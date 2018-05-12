@@ -1,12 +1,14 @@
 package engine
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
 
 	"github.com/byonchev/go-engine.io/logger"
+	"github.com/byonchev/go-engine.io/packet"
 	"github.com/byonchev/go-engine.io/session"
 )
 
@@ -57,6 +59,19 @@ func (server *Server) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 // Events returns the channel for session events
 func (server *Server) Events() <-chan interface{} {
 	return server.events
+}
+
+// Send sends message to a specific session
+func (server *Server) Send(id string, binary bool, data []byte) error {
+	server.RLock()
+	session := server.findSession(id)
+	server.RUnlock()
+
+	if session == nil {
+		return errors.New("invalid session")
+	}
+
+	return session.Send(packet.NewMessage(binary, data))
 }
 
 func (server *Server) checkPing() {

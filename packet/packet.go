@@ -35,6 +35,15 @@ func NewBinaryMessage(data []byte) Packet {
 	return Packet{true, Message, data}
 }
 
+// NewMessage creates new message depending on its type
+func NewMessage(binary bool, data []byte) Packet {
+	if binary {
+		return NewBinaryMessage(data)
+	}
+
+	return NewStringMessage(string(data))
+}
+
 // NewNOOP creates new NOOP packet
 func NewNOOP() Packet {
 	return Packet{false, NOOP, nil}

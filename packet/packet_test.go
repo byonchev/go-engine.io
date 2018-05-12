@@ -56,6 +56,22 @@ func TestPacketTypes(t *testing.T) {
 		{
 			packet.Packet{
 				Binary: false,
+				Type:   packet.Message,
+				Data:   []byte("hello"),
+			},
+			packet.NewMessage(false, []byte("hello")),
+		},
+		{
+			packet.Packet{
+				Binary: true,
+				Type:   packet.Message,
+				Data:   []byte{1, 2, 3},
+			},
+			packet.NewMessage(true, []byte{1, 2, 3}),
+		},
+		{
+			packet.Packet{
+				Binary: false,
 				Type:   packet.NOOP,
 				Data:   nil,
 			},
