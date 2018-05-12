@@ -1,5 +1,9 @@
 package packet
 
+import (
+	"fmt"
+)
+
 // Packet is a single encoded message
 type Packet struct {
 	Binary bool
@@ -11,7 +15,7 @@ type Packet struct {
 type Payload []Packet
 
 func (packet Packet) String() string {
-	return string(packet.Data)
+	return fmt.Sprintf("[%d] %s", packet.Type, string(packet.Data))
 }
 
 // NewOpen creates new open packet

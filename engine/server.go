@@ -84,7 +84,7 @@ func (server *Server) checkPing() {
 
 		for id, session := range server.clients {
 			if session.Expired() {
-				session.Close("ping timeout")
+				go session.Close("ping timeout")
 
 				delete(server.clients, id)
 			}
