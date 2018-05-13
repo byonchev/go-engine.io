@@ -15,7 +15,6 @@ import (
 type XHR struct {
 	running bool
 
-	codec  codec.Codec
 	buffer *packet.Buffer
 
 	receiving sync.WaitGroup
@@ -26,7 +25,6 @@ type XHR struct {
 // NewXHR creates new XHR transport
 func NewXHR(bufferFlushLimit int, receiveBufferSize int) *XHR {
 	transport := &XHR{
-		codec:    codec.XHR{},
 		buffer:   packet.NewBuffer(bufferFlushLimit),
 		received: make(chan packet.Packet, receiveBufferSize),
 		running:  true,
@@ -37,17 +35,18 @@ func NewXHR(bufferFlushLimit int, receiveBufferSize int) *XHR {
 
 // HandleRequest handles HTTP polling requests
 func (transport *XHR) HandleRequest(writer http.ResponseWriter, request *http.Request) {
-	method := request.Method
-
 	if !transport.running {
 		return
 	}
 
+	method := request.Method
+	codec := transport.createCodec(request)
+
 	switch method {
 	case "GET":
-		transport.write(writer)
+		transport.write(writer, codec)
 	case "POST":
-		transport.read(request.Body)
+		transport.read(request.Body, codec)
 	default:
 		writer.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -92,8 +91,8 @@ func (transport *XHR) Type() Type {
 	return PollingType
 }
 
-func (transport *XHR) read(reader io.Reader) {
-	payload, err := transport.codec.Decode(reader)
+func (transport *XHR) read(reader io.Reader, codec codec.Codec) {
+	payload, err := codec.Decode(reader)
 
 	if err != nil {
 		logger.Error("Error decoding messages:", err)
@@ -109,13 +108,26 @@ func (transport *XHR) read(reader io.Reader) {
 	transport.receiving.Done()
 }
 
-func (transport *XHR) write(writer io.Writer) {
+func (transport *XHR) write(writer io.Writer, codec codec.Codec) {
 	payload := transport.buffer.Flush()
 
-	err := transport.codec.Encode(payload, writer)
+	err := codec.Encode(payload, writer)
 
 	if err != nil {
 		logger.Error("Error encoding messages:", err)
 		return
 	}
+}
+
+func (transport *XHR) createCodec(request *http.Request) codec.Codec {
+	query := request.URL.Query()
+
+	// b64 := query.Get("b64")
+	j := query.Get("j")
+
+	if j != "" {
+		return codec.JSONP{Index: j}
+	}
+
+	return codec.XHR{}
 }
