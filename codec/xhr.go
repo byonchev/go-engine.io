@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"strconv"
+	"unicode/utf8"
 
 	"github.com/byonchev/go-engine.io/packet"
 )
@@ -60,14 +61,15 @@ func (codec XHR) Decode(reader io.Reader) (packet.Payload, error) {
 
 func (codec XHR) encodePacket(packet packet.Packet, writer io.Writer) error {
 	var data []byte
+	var length int
 
 	if packet.Binary {
 		data = codec.encodeBinaryData(packet)
+		length = len(data)
 	} else {
 		data = codec.encodeStringData(packet)
+		length = utf8.RuneCount(data)
 	}
-
-	length := len(data)
 
 	var encoded []byte
 

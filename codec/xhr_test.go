@@ -20,7 +20,7 @@ func TestXHREncode(t *testing.T) {
 			packet.Payload{
 				packet.NewStringMessage("utf八 string"),
 			},
-			"14:4utf八 string",
+			"12:4utf八 string",
 		},
 		{
 			packet.Payload{
