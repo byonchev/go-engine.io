@@ -23,25 +23,13 @@ const hexCharacters = "0123456789abcdef"
 func (codec JSONP) Encode(payload packet.Payload, writer io.Writer) error {
 	var buffer bytes.Buffer
 
-	_, err := writer.Write([]byte("___eio[" + codec.Index + "](\""))
+	codec.delegate.Encode(payload, &buffer)
 
-	if err != nil {
-		return err
-	}
+	bytes := []byte("___eio[" + codec.Index + "](\"")
+	bytes = append(bytes, codec.escape(buffer.String())...)
+	bytes = append(bytes, []byte("\");")...)
 
-	err = codec.delegate.Encode(payload, &buffer)
-
-	if err != nil {
-		return err
-	}
-
-	_, err = writer.Write(codec.escape(buffer.String()))
-
-	if err != nil {
-		return err
-	}
-
-	_, err = writer.Write([]byte("\");"))
+	_, err := writer.Write(bytes)
 
 	return err
 }

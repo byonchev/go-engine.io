@@ -57,6 +57,14 @@ func TestJSONPEncode(t *testing.T) {
 	}
 }
 
+func TestJSONPEncodeWriterError(t *testing.T) {
+	codec := codec.JSONP{}
+
+	err := codec.Encode(packet.Payload{packet.NewNOOP()}, &errorWriter{})
+
+	assert.Error(t, err, "writer error was expected")
+}
+
 func TestJSONPDecode(t *testing.T) {
 	codec := codec.JSONP{}
 
