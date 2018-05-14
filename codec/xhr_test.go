@@ -73,9 +73,9 @@ func TestXHRDecode(t *testing.T) {
 		decoded packet.Payload
 	}{
 		{
-			[]byte("6:4hello"),
+			[]byte("8:4hello \u2764"),
 			packet.Payload{
-				packet.NewStringMessage("hello"),
+				packet.NewStringMessage("hello ❤"),
 			},
 		},
 		{
