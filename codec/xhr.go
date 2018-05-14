@@ -106,8 +106,9 @@ func (codec XHR) splitPayload(data []byte) ([][]byte, error) {
 	var lengthRunes []rune
 
 	runes := []rune(string(data))
+	total := len(runes)
 
-	for i := 0; i < len(runes); i++ {
+	for i := 0; i < total; i++ {
 		r := runes[i]
 
 		if r != ':' {
@@ -123,6 +124,10 @@ func (codec XHR) splitPayload(data []byte) ([][]byte, error) {
 
 		start := i + 1
 		end := start + length
+
+		if end > total {
+			return nil, errors.New("packet length overflow")
+		}
 
 		packets = append(packets, []byte(string(runes[start:end])))
 

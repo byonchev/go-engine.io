@@ -108,6 +108,37 @@ func TestJSONPDecode(t *testing.T) {
 	}
 }
 
+func TestJSONPDecodeErrors(t *testing.T) {
+	codec := codec.JSONP{}
+
+	tests := [][]byte{
+		[]byte("1"),
+		[]byte("123%"),
+		[]byte("INVALID_LENGTH:3"),
+		[]byte("1:30:"),
+		[]byte("6:b4AGQI0:"),
+		[]byte("d=INVALID_LENGTH:3"),
+		[]byte("d=1:30:"),
+		[]byte("d=6:b4AGQI0:"),
+		[]byte("d=8:bINVALID_BASE64"),
+	}
+
+	for _, test := range tests {
+		payload, err := codec.Decode(bytes.NewBuffer(test))
+
+		assert.Empty(t, payload, "decoded invalid payload was not empty")
+		assert.Error(t, err, "error was expected for decoding "+string(test))
+	}
+}
+
+func TestJSONPDecodeReaderError(t *testing.T) {
+	codec := codec.JSONP{}
+
+	_, err := codec.Decode(errorReader{})
+
+	assert.Error(t, err, "reader error was expected")
+}
+
 func BenchmarkJSONPEncode(b *testing.B) {
 	codec := codec.JSONP{Index: "0"}
 
