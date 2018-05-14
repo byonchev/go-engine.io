@@ -18,9 +18,9 @@ func TestJSONPEncode(t *testing.T) {
 	}{
 		{
 			packet.Payload{
-				packet.NewStringMessage("javascript-safe \n \" / \u0015 \u516B\u2028\u2029"),
+				packet.NewStringMessage("javascript-safe \n\b\f\r\t \" / \u0015 \u516B\u2028\u2029"),
 			},
-			`___eio[0]("28:4javascript-safe \n \" \/ \u0015 八\u2028\u2029");`,
+			`___eio[0]("32:4javascript-safe \n\b\f\r\t \" \/ \u0015 八\u2028\u2029");`,
 		},
 		{
 			packet.Payload{

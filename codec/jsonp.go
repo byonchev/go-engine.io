@@ -96,7 +96,7 @@ func (codec JSONP) escape(data string) []byte {
 			buffer.WriteString("\\u202")
 			buffer.WriteByte(hexCharacters[char&0xF])
 		default:
-			if char < 0x20 || char == 0x2028 || char == 0x2029 {
+			if char < 0x20 {
 				buffer.WriteString("\\u00")
 				buffer.WriteByte(hexCharacters[char>>4])
 				buffer.WriteByte(hexCharacters[char&0xF])
