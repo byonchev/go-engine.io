@@ -103,17 +103,20 @@ func (codec XHR) encodeBinaryData(packet packet.Packet) []byte {
 
 func (codec XHR) splitPayload(data []byte) ([][]byte, error) {
 	var packets [][]byte
-	var lengthBytes []byte
+	var lengthRunes []rune
 
-	for i := 0; i < len(data); i++ {
-		b := data[i]
+	runes := []rune(string(data))
+	total := len(runes)
 
-		if b != ':' {
-			lengthBytes = append(lengthBytes, b)
+	for i := 0; i < total; i++ {
+		r := runes[i]
+
+		if r != ':' {
+			lengthRunes = append(lengthRunes, r)
 			continue
 		}
 
-		length, err := strconv.Atoi(string(lengthBytes))
+		length, err := strconv.Atoi(string(lengthRunes))
 
 		if err != nil {
 			return nil, errors.New("invalid packet length")
@@ -122,9 +125,13 @@ func (codec XHR) splitPayload(data []byte) ([][]byte, error) {
 		start := i + 1
 		end := start + length
 
-		packets = append(packets, data[start:end])
+		if end > total {
+			return nil, errors.New("packet length overflow")
+		}
 
-		lengthBytes = nil
+		packets = append(packets, []byte(string(runes[start:end])))
+
+		lengthRunes = nil
 		i = end - 1
 	}
 
