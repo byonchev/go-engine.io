@@ -1,7 +1,6 @@
 package session
 
 import (
-	"encoding/base64"
 	"errors"
 	"net/http"
 	"sync"
@@ -10,7 +9,7 @@ import (
 	"github.com/byonchev/go-engine.io/logger"
 	"github.com/byonchev/go-engine.io/packet"
 	"github.com/byonchev/go-engine.io/transport"
-	uuid "github.com/satori/go.uuid"
+	"github.com/byonchev/go-engine.io/utils"
 )
 
 // Session holds information for a single connected client
@@ -31,11 +30,8 @@ type Session struct {
 
 // NewSession creates a new client session
 func NewSession(config Config, events chan<- interface{}) *Session {
-	uuid, _ := uuid.NewV4()
-	id := base64.URLEncoding.EncodeToString(uuid.Bytes())
-
 	return &Session{
-		id:     id,
+		id:     utils.GenerateBase64ID(),
 		config: config,
 
 		events: events,
