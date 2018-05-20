@@ -30,12 +30,13 @@ func NewWebSocket() *WebSocket {
 		codec:   codec.WebSocket{},
 	}
 
+	transport.lock()
+
 	return transport
 }
 
-// HandleRequest handles WebSocket upgrade request
+// HandleRequest handles initial websocket upgrade request
 func (transport *WebSocket) HandleRequest(writer http.ResponseWriter, request *http.Request) {
-	transport.lock()
 	defer transport.unlock()
 
 	upgrader := websocket.Upgrader{

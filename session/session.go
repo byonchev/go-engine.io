@@ -58,11 +58,7 @@ func (session *Session) HandleRequest(writer http.ResponseWriter, request *http.
 	}
 
 	if !session.handshaked {
-		if session.transport.Type() == transport.PollingType {
-			session.handshake()
-		} else {
-			defer session.handshake()
-		}
+		go session.handshake()
 	}
 
 	if requestedTransport != session.transport.Type() {
