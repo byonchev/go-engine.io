@@ -11,8 +11,8 @@ import (
 	"github.com/byonchev/go-engine.io/packet"
 )
 
-// XHR is the standard polling transport
-type XHR struct {
+// Polling is the standard polling transport
+type Polling struct {
 	running bool
 
 	buffer *packet.Buffer
@@ -22,9 +22,9 @@ type XHR struct {
 	received chan packet.Packet
 }
 
-// NewXHR creates new XHR transport
-func NewXHR(bufferFlushLimit int, receiveBufferSize int) *XHR {
-	transport := &XHR{
+// NewPolling creates new polling transport
+func NewPolling(bufferFlushLimit int, receiveBufferSize int) *Polling {
+	transport := &Polling{
 		buffer:   packet.NewBuffer(bufferFlushLimit),
 		received: make(chan packet.Packet, receiveBufferSize),
 		running:  true,
@@ -34,7 +34,7 @@ func NewXHR(bufferFlushLimit int, receiveBufferSize int) *XHR {
 }
 
 // HandleRequest handles HTTP polling requests
-func (transport *XHR) HandleRequest(writer http.ResponseWriter, request *http.Request) {
+func (transport *Polling) HandleRequest(writer http.ResponseWriter, request *http.Request) {
 	if !transport.running {
 		return
 	}
@@ -53,14 +53,14 @@ func (transport *XHR) HandleRequest(writer http.ResponseWriter, request *http.Re
 }
 
 // Send buffers packets for sending on next poll cycle
-func (transport *XHR) Send(packet packet.Packet) error {
+func (transport *Polling) Send(packet packet.Packet) error {
 	transport.buffer.Add(packet)
 
 	return nil
 }
 
 // Receive returns the last received packet or blocks until a packet is present
-func (transport *XHR) Receive() (packet.Packet, error) {
+func (transport *Polling) Receive() (packet.Packet, error) {
 	received, success := <-transport.received
 
 	if !success {
@@ -71,7 +71,7 @@ func (transport *XHR) Receive() (packet.Packet, error) {
 }
 
 // Shutdown stops the transport from receiving or sending packets
-func (transport *XHR) Shutdown() {
+func (transport *Polling) Shutdown() {
 	if !transport.running {
 		return
 	}
@@ -86,12 +86,17 @@ func (transport *XHR) Shutdown() {
 	close(transport.received)
 }
 
-// Type returns the transport type
-func (transport *XHR) Type() Type {
+// Type returns the transport identifier
+func (transport *Polling) Type() string {
 	return PollingType
 }
 
-func (transport *XHR) read(reader io.Reader, codec codec.Codec) {
+// Upgrades returns the possible transport upgrades
+func (transport *Polling) Upgrades() []string {
+	return []string{WebsocketType}
+}
+
+func (transport *Polling) read(reader io.Reader, codec codec.Codec) {
 	payload, err := codec.Decode(reader)
 
 	if err != nil {
@@ -108,7 +113,7 @@ func (transport *XHR) read(reader io.Reader, codec codec.Codec) {
 	transport.receiving.Done()
 }
 
-func (transport *XHR) write(writer io.Writer, codec codec.Codec) {
+func (transport *Polling) write(writer io.Writer, codec codec.Codec) {
 	payload := transport.buffer.Flush()
 
 	err := codec.Encode(payload, writer)
@@ -119,7 +124,7 @@ func (transport *XHR) write(writer io.Writer, codec codec.Codec) {
 	}
 }
 
-func (transport *XHR) createCodec(request *http.Request) codec.Codec {
+func (transport *Polling) createCodec(request *http.Request) codec.Codec {
 	query := request.URL.Query()
 
 	// b64 := query.Get("b64")

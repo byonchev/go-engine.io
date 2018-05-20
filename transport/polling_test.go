@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestXHRSendBufferedPayload(t *testing.T) {
-	codec := codec.XHR{}
-	transport := transport.NewXHR(0, 0)
+func TestPollingSendBufferedPayload(t *testing.T) {
+	codec := codec.Polling{}
+	transport := transport.NewPolling(0, 0)
 
 	packets := []packet.Packet{
 		packet.NewStringMessage("hello"),
@@ -34,9 +34,9 @@ func TestXHRSendBufferedPayload(t *testing.T) {
 	assert.Equal(t, expected, actual, "packets were not delivered to client")
 }
 
-func TestXHRSendPayloadAfterRequest(t *testing.T) {
-	codec := codec.XHR{}
-	transport := transport.NewXHR(0, 0)
+func TestPollingSendPayloadAfterRequest(t *testing.T) {
+	codec := codec.Polling{}
+	transport := transport.NewPolling(0, 0)
 
 	sent := packet.NewClose()
 
@@ -50,8 +50,8 @@ func TestXHRSendPayloadAfterRequest(t *testing.T) {
 	assert.Equal(t, expected, actual, "packets were not delivered to client")
 }
 
-func TestXHRSendAndShutdown(t *testing.T) {
-	transport := transport.NewXHR(0, 0)
+func TestPollingSendAndShutdown(t *testing.T) {
+	transport := transport.NewPolling(0, 0)
 
 	transport.Send(packet.NewNOOP())
 	transport.Shutdown()
@@ -62,9 +62,9 @@ func TestXHRSendAndShutdown(t *testing.T) {
 	assert.Equal(t, expected, actual, "packets were sent to the client after shutdown")
 }
 
-func TestXHRReceivePayload(t *testing.T) {
-	codec := codec.XHR{}
-	transport := transport.NewXHR(0, 10)
+func TestPollingReceivePayload(t *testing.T) {
+	codec := codec.Polling{}
+	transport := transport.NewPolling(0, 10)
 
 	payload := packet.Payload{
 		packet.NewStringMessage("hello"),
@@ -85,9 +85,9 @@ func TestXHRReceivePayload(t *testing.T) {
 	}
 }
 
-func TestXHRReceiveAndShutdown(t *testing.T) {
-	codec := codec.XHR{}
-	transport := transport.NewXHR(0, 10)
+func TestPollingReceiveAndShutdown(t *testing.T) {
+	codec := codec.Polling{}
+	transport := transport.NewPolling(0, 10)
 
 	sent := packet.NewNOOP()
 
@@ -105,8 +105,8 @@ func TestXHRReceiveAndShutdown(t *testing.T) {
 	assert.Equal(t, expected, actual, "payload was not received due to transport shutdown")
 }
 
-func TestXHRInvalidHTTPMethod(t *testing.T) {
-	transport := transport.NewXHR(0, 0)
+func TestPollingInvalidHTTPMethod(t *testing.T) {
+	transport := transport.NewPolling(0, 0)
 
 	request, _ := http.NewRequest("DELETE", "/", nil)
 	writer := httptest.NewRecorder()
@@ -116,8 +116,8 @@ func TestXHRInvalidHTTPMethod(t *testing.T) {
 	assert.Equal(t, http.StatusMethodNotAllowed, writer.Code, "http handler responded to invalid method")
 }
 
-func TestXHRReceiveInvalidPayload(t *testing.T) {
-	transport := transport.NewXHR(0, 0)
+func TestPollingReceiveInvalidPayload(t *testing.T) {
+	transport := transport.NewPolling(0, 0)
 
 	buffer := bytes.NewBuffer([]byte("INVALID:INVALID"))
 

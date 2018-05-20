@@ -3,7 +3,6 @@ package session
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -52,7 +51,7 @@ func (session *Session) HandleRequest(writer http.ResponseWriter, request *http.
 	defer request.Body.Close()
 
 	query := request.URL.Query()
-	requestedTransport := transport.Type(query.Get("transport"))
+	requestedTransport := query.Get("transport")
 
 	if session.transport == nil {
 		session.transport = transport.NewTransport(requestedTransport)
@@ -117,7 +116,7 @@ func (session *Session) Expired() bool {
 }
 
 func (session *Session) handshake() {
-	packet := createHandshakePacket(session.id, session.transport.Type(), session.config)
+	packet := createHandshakePacket(session.id, session.transport, session.config)
 
 	err := session.Send(packet)
 
@@ -188,7 +187,7 @@ func (session *Session) upgrade(writer http.ResponseWriter, request *http.Reques
 	// TODO: Error
 	target.HandleRequest(writer, request)
 
-	fmt.Println("upgrading")
+	session.debug("Upgrading transport")
 
 	for {
 		received, err := target.Receive()
@@ -197,8 +196,6 @@ func (session *Session) upgrade(writer http.ResponseWriter, request *http.Reques
 			return err
 		}
 
-		fmt.Println("packet received on upgrade sequence", received)
-
 		if received.Type == packet.Ping && string(received.Data) == "probe" {
 			err := target.Send(packet.NewPong(received.Data))
 
@@ -206,15 +203,14 @@ func (session *Session) upgrade(writer http.ResponseWriter, request *http.Reques
 				return err
 			}
 
-			fmt.Println("sent pong probe")
+			session.debug("Sending pong probe")
 
 			session.transport.Send(packet.NewNOOP())
 		} else if received.Type == packet.Upgrade {
-			fmt.Println("upgraded")
+			session.debug("Upgrade packet recevied")
 			session.transport.Shutdown()
 			session.transport = target
 			break
-			// upgrade received
 		}
 	}
 

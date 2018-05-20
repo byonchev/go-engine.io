@@ -132,9 +132,14 @@ func (transport *WebSocket) Receive() (packet.Packet, error) {
 	return payload[0], nil
 }
 
-// Type returns the transport type
-func (transport *WebSocket) Type() Type {
-	return WebSocketType
+// Type returns the transport identifier
+func (transport *WebSocket) Type() string {
+	return WebsocketType
+}
+
+// Upgrades returns the possible transport upgrades
+func (transport *WebSocket) Upgrades() []string {
+	return []string{}
 }
 
 func (transport *WebSocket) lock() {

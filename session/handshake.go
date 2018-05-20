@@ -9,18 +9,18 @@ import (
 )
 
 type handshakeMessage struct {
-	SessionID    string           `json:"sid"`
-	Upgrades     []transport.Type `json:"upgrades"`
-	PingTimeout  int64            `json:"pingTimeout"`
-	PingInterval int64            `json:"pingInterval"`
+	SessionID    string   `json:"sid"`
+	Upgrades     []string `json:"upgrades"`
+	PingTimeout  int64    `json:"pingTimeout"`
+	PingInterval int64    `json:"pingInterval"`
 }
 
-func createHandshakePacket(sid string, transportType transport.Type, config Config) packet.Packet {
+func createHandshakePacket(sid string, transport transport.Transport, config Config) packet.Packet {
 	handshake := handshakeMessage{
 		SessionID:    sid,
 		PingInterval: int64(config.PingInterval / time.Millisecond),
 		PingTimeout:  int64(config.PingTimeout / time.Millisecond),
-		Upgrades:     transport.Upgrades[transportType],
+		Upgrades:     transport.Upgrades(),
 	}
 
 	json, _ := json.Marshal(handshake)
