@@ -14,7 +14,7 @@ import (
 )
 
 func TestPollingSendBufferedPayload(t *testing.T) {
-	codec := codec.Polling{}
+	codec := codec.XHR{}
 	transport := transport.NewPolling(0, 0)
 
 	packets := []packet.Packet{
@@ -35,7 +35,7 @@ func TestPollingSendBufferedPayload(t *testing.T) {
 }
 
 func TestPollingSendPayloadAfterRequest(t *testing.T) {
-	codec := codec.Polling{}
+	codec := codec.XHR{}
 	transport := transport.NewPolling(0, 0)
 
 	sent := packet.NewClose()
@@ -63,7 +63,7 @@ func TestPollingSendAndShutdown(t *testing.T) {
 }
 
 func TestPollingReceivePayload(t *testing.T) {
-	codec := codec.Polling{}
+	codec := codec.XHR{}
 	transport := transport.NewPolling(0, 10)
 
 	payload := packet.Payload{
@@ -86,7 +86,7 @@ func TestPollingReceivePayload(t *testing.T) {
 }
 
 func TestPollingReceiveAndShutdown(t *testing.T) {
-	codec := codec.Polling{}
+	codec := codec.XHR{}
 	transport := transport.NewPolling(0, 10)
 
 	sent := packet.NewNOOP()
