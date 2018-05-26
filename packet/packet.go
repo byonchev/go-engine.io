@@ -11,11 +11,24 @@ type Packet struct {
 	Data   []byte
 }
 
+func (packet Packet) String() string {
+	return fmt.Sprintf("[%d] %s", packet.Type, string(packet.Data))
+}
+
 // Payload is a collection of packets
 type Payload []Packet
 
-func (packet Packet) String() string {
-	return fmt.Sprintf("[%d] %s", packet.Type, string(packet.Data))
+// ContainsBinary returns true if payload contains at least one binary packet
+func (payload Payload) ContainsBinary() bool {
+	for _, packet := range payload {
+		if !packet.Binary {
+			continue
+		}
+
+		return true
+	}
+
+	return false
 }
 
 // NewOpen creates new open packet
@@ -25,7 +38,7 @@ func NewOpen(data []byte) Packet {
 
 // NewClose creates new close packet
 func NewClose() Packet {
-	return Packet{false, Close, nil}
+	return Packet{false, Close, []byte{}}
 }
 
 // NewPong creates new pong packet
@@ -54,5 +67,5 @@ func NewMessage(binary bool, data []byte) Packet {
 
 // NewNOOP creates new NOOP packet
 func NewNOOP() Packet {
-	return Packet{false, NOOP, nil}
+	return Packet{false, NOOP, []byte{}}
 }

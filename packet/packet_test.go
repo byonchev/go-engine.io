@@ -25,7 +25,7 @@ func TestPacketTypes(t *testing.T) {
 			packet.Packet{
 				Binary: false,
 				Type:   packet.Close,
-				Data:   nil,
+				Data:   []byte{},
 			},
 			packet.NewClose(),
 		},
@@ -73,7 +73,7 @@ func TestPacketTypes(t *testing.T) {
 			packet.Packet{
 				Binary: false,
 				Type:   packet.NOOP,
-				Data:   nil,
+				Data:   []byte{},
 			},
 			packet.NewNOOP(),
 		},

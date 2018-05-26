@@ -23,6 +23,7 @@ const hexCharacters = "0123456789abcdef"
 func (codec JSONP) Encode(payload packet.Payload, writer io.Writer) error {
 	var buffer bytes.Buffer
 
+	codec.delegate.ForceBase64 = true
 	codec.delegate.Encode(payload, &buffer)
 
 	bytes := []byte("___eio[" + codec.Index + "](\"")

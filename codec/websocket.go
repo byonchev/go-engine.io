@@ -56,10 +56,6 @@ func (WebSocket) Decode(reader io.Reader) (packet.Payload, error) {
 
 	data := encoded[1:]
 
-	if len(data) == 0 {
-		data = nil
-	}
-
 	decoded := packet.Packet{
 		Binary: binary,
 		Type:   packetType,

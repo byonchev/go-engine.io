@@ -15,12 +15,26 @@ import (
 var base64Encoding = base64.StdEncoding
 
 // XHR is a codec for encoding messages for standard long polling
-type XHR struct{}
+type XHR struct {
+	ForceBase64 bool
+}
 
 // Encode encodes payload of packets for single poll
 func (codec XHR) Encode(payload packet.Payload, writer io.Writer) error {
+	if len(payload) == 0 {
+		return nil
+	}
+
+	binary := !codec.ForceBase64 && payload.ContainsBinary()
+
 	for _, packet := range payload {
-		err := codec.encodePacket(packet, writer)
+		var err error
+
+		if binary {
+			err = codec.encodeBinaryPacket(packet, writer)
+		} else {
+			err = codec.encodeStringPacket(packet, writer)
+		}
 
 		if err != nil {
 			return err
@@ -38,33 +52,23 @@ func (codec XHR) Decode(reader io.Reader) (packet.Payload, error) {
 		return nil, err
 	}
 
-	packets, err := codec.splitPayload(encoded)
-
-	if err != nil {
-		return nil, err
+	if len(encoded) == 0 {
+		return nil, errors.New("payload is empty")
 	}
 
-	payload := make(packet.Payload, len(packets))
-
-	for i, packet := range packets {
-		decoded, err := codec.decodePacket(packet)
-
-		if err != nil {
-			return nil, err
-		}
-
-		payload[i] = decoded
+	if encoded[0] <= 1 {
+		return codec.decodeBinaryPayload(encoded)
 	}
 
-	return payload, nil
+	return codec.decodeStringPayload(encoded)
 }
 
-func (codec XHR) encodePacket(packet packet.Packet, writer io.Writer) error {
+func (codec XHR) encodeStringPacket(packet packet.Packet, writer io.Writer) error {
 	var data []byte
 	var length int
 
 	if packet.Binary {
-		data = codec.encodeBinaryData(packet)
+		data = codec.encodeBase64Data(packet)
 		length = len(data)
 	} else {
 		data = codec.encodeStringData(packet)
@@ -91,7 +95,7 @@ func (codec XHR) encodeStringData(packet packet.Packet) []byte {
 	return buffer.Bytes()
 }
 
-func (codec XHR) encodeBinaryData(packet packet.Packet) []byte {
+func (codec XHR) encodeBase64Data(packet packet.Packet) []byte {
 	var buffer bytes.Buffer
 
 	buffer.WriteRune('b')
@@ -101,8 +105,41 @@ func (codec XHR) encodeBinaryData(packet packet.Packet) []byte {
 	return buffer.Bytes()
 }
 
-func (codec XHR) splitPayload(data []byte) ([][]byte, error) {
-	var packets [][]byte
+func (codec XHR) encodeBinaryPacket(packet packet.Packet, writer io.Writer) error {
+	var messageType byte
+	var packetType byte
+
+	if packet.Binary {
+		messageType = 1
+		packetType = packet.Type.Byte()
+	} else {
+		messageType = 0
+		packetType = packet.Type.Char()
+	}
+
+	var lengthBytes []byte
+
+	for length := len(packet.Data) + 1; length > 0; length /= 10 {
+		digit := byte(length % 10)
+
+		lengthBytes = append([]byte{digit}, lengthBytes...)
+	}
+
+	var encoded []byte
+
+	encoded = append(encoded, messageType)
+	encoded = append(encoded, lengthBytes...)
+	encoded = append(encoded, 255)
+	encoded = append(encoded, packetType)
+	encoded = append(encoded, packet.Data...)
+
+	_, err := writer.Write(encoded)
+
+	return err
+}
+
+func (codec XHR) decodeStringPayload(data []byte) (packet.Payload, error) {
+	var payload packet.Payload
 	var lengthRunes []rune
 
 	runes := []rune(string(data))
@@ -129,53 +166,113 @@ func (codec XHR) splitPayload(data []byte) ([][]byte, error) {
 			return nil, errors.New("packet length overflow")
 		}
 
-		packets = append(packets, []byte(string(runes[start:end])))
+		packet, err := codec.decodeStringPacket([]byte(string(runes[start:end])))
+
+		if err != nil {
+			return nil, err
+		}
+
+		payload = append(payload, packet)
 
 		lengthRunes = nil
 		i = end - 1
 	}
 
-	return packets, nil
+	return payload, nil
 }
 
-func (codec XHR) decodePacket(data []byte) (packet.Packet, error) {
-	if len(data) == 0 {
-		return packet.Packet{}, errors.New("packet type missing")
+func (codec XHR) decodeBinaryPayload(data []byte) (packet.Payload, error) {
+	var payload packet.Payload
+
+	total := len(data)
+
+	for offset := 0; offset < total-1; {
+		messageType := data[offset]
+
+		offset++
+
+		length := 0
+
+		for offset < total && data[offset] != 255 {
+			length = length*10 + int(data[offset])
+			offset++
+		}
+
+		offset++
+
+		start := offset
+		end := offset + length
+
+		if end > total {
+			return nil, errors.New("packet length overflow")
+		}
+
+		packet, err := codec.decodeBinaryPacket(messageType, data[start:end])
+
+		if err != nil {
+			return nil, err
+		}
+
+		payload = append(payload, packet)
+		offset += length
 	}
 
-	binary := (data[0] == 'b')
+	return payload, nil
+}
+
+func (codec XHR) decodeBinaryPacket(messageType byte, data []byte) (packet.Packet, error) {
+	if len(data) < 1 {
+		return packet.Packet{}, errors.New("invalid packet")
+	}
+
+	var binary bool
+	var packetType packet.Type
+
+	if messageType == 1 {
+		binary = true
+	}
 
 	if binary {
-		return codec.decodeBinaryData(data[1:])
+		packetType = packet.TypeFromByte(data[0])
+	} else {
+		packetType = packet.TypeFromChar(data[0])
 	}
 
-	return codec.decodeStringData(data)
+	return packet.Packet{
+		Binary: binary,
+		Data:   data[1:],
+		Type:   packetType,
+	}, nil
 }
 
-func (codec XHR) decodeStringData(data []byte) (packet.Packet, error) {
-	var decoded []byte
+func (codec XHR) decodeStringPacket(data []byte) (packet.Packet, error) {
+	if len(data) < 1 {
+		return packet.Packet{}, errors.New("invalid packet")
+	}
 
-	if len(data) > 1 {
-		decoded = data[1:]
+	if data[0] == 'b' {
+		return codec.decodeBase64Packet(data[1:])
 	}
 
 	return packet.Packet{
 		Binary: false,
 		Type:   packet.TypeFromChar(data[0]),
-		Data:   decoded,
+		Data:   data[1:],
 	}, nil
 }
 
-func (codec XHR) decodeBinaryData(data []byte) (packet.Packet, error) {
+func (codec XHR) decodeBase64Packet(data []byte) (packet.Packet, error) {
 	var decoded []byte
 	var err error
 
-	if len(data) > 1 {
-		decoded, err = base64Encoding.DecodeString(string(data[1:]))
+	if len(data) < 1 {
+		return packet.Packet{}, errors.New("invalid packet")
+	}
 
-		if err != nil {
-			return packet.Packet{}, errors.New("base64 decoding error: " + err.Error())
-		}
+	decoded, err = base64Encoding.DecodeString(string(data[1:]))
+
+	if err != nil {
+		return packet.Packet{}, errors.New("base64 decoding error: " + err.Error())
 	}
 
 	return packet.Packet{

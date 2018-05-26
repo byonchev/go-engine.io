@@ -127,12 +127,12 @@ func (transport *Polling) write(writer io.Writer, codec codec.Codec) {
 func (transport *Polling) createCodec(request *http.Request) codec.Codec {
 	query := request.URL.Query()
 
-	// b64 := query.Get("b64")
+	b64 := query.Get("b64")
 	j := query.Get("j")
 
 	if j != "" {
 		return codec.JSONP{Index: j}
 	}
 
-	return codec.XHR{}
+	return codec.XHR{ForceBase64: b64 != ""}
 }
