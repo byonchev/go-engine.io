@@ -1,12 +1,12 @@
-package session
+package utils
 
 import (
 	"encoding/json"
 	"time"
 
-	"github.com/byonchev/go-engine.io/config"
-	"github.com/byonchev/go-engine.io/packet"
-	"github.com/byonchev/go-engine.io/transport"
+	"github.com/byonchev/go-engine.io/internal/config"
+	"github.com/byonchev/go-engine.io/internal/packet"
+	"github.com/byonchev/go-engine.io/internal/transport"
 )
 
 type handshakeMessage struct {
@@ -16,7 +16,8 @@ type handshakeMessage struct {
 	PingInterval int64    `json:"pingInterval"`
 }
 
-func createHandshakePacket(sid string, transport transport.Transport, config config.Config) packet.Packet {
+// CreateHandshakePacket creates open packet with JSON serialized handshake messag
+func CreateHandshakePacket(sid string, transport transport.Transport, config config.Config) packet.Packet {
 	handshake := handshakeMessage{
 		SessionID:    sid,
 		PingInterval: int64(config.PingInterval / time.Millisecond),

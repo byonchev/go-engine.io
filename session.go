@@ -1,4 +1,4 @@
-package session
+package eio
 
 import (
 	"errors"
@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/byonchev/go-engine.io/config"
-	"github.com/byonchev/go-engine.io/logger"
-	"github.com/byonchev/go-engine.io/packet"
-	"github.com/byonchev/go-engine.io/transport"
-	"github.com/byonchev/go-engine.io/utils"
+	"github.com/byonchev/go-engine.io/internal/config"
+	"github.com/byonchev/go-engine.io/internal/logger"
+	"github.com/byonchev/go-engine.io/internal/packet"
+	"github.com/byonchev/go-engine.io/internal/transport"
+	"github.com/byonchev/go-engine.io/internal/utils"
 )
 
 // Session holds information for a single connected client
@@ -63,7 +63,7 @@ func (session *Session) HandleRequest(writer http.ResponseWriter, request *http.
 		err := session.upgrade(writer, request, newTransport)
 
 		if err != nil {
-			logger.Error(err)
+			logger.Error("Upgrade error: ", err)
 		}
 	} else {
 		session.transport.HandleRequest(writer, request)
@@ -94,7 +94,7 @@ func (session *Session) Close(reason interface{}) {
 	session.sending.Wait()
 	session.transport.Shutdown()
 
-	session.debug("Session closed. Reason:", reason)
+	session.debug("Session closed. Reason: ", reason)
 
 	session.emit(DisconnectEvent{session.id})
 }
@@ -113,12 +113,12 @@ func (session *Session) Expired() bool {
 }
 
 func (session *Session) handshake() {
-	packet := createHandshakePacket(session.id, session.transport, session.config)
+	packet := utils.CreateHandshakePacket(session.id, session.transport, session.config)
 
 	err := session.Send(packet)
 
 	if err != nil {
-		logger.Error("Handshake error:", err, "for", packet)
+		logger.Error("Handshake error: ", err, "for", packet)
 		return
 	}
 
@@ -141,7 +141,7 @@ func (session *Session) receivePackets() {
 		received, err := session.transport.Receive()
 
 		if err != nil {
-			logger.Error(err)
+			logger.Error("Receive error: ", err)
 			continue
 		}
 
@@ -170,7 +170,7 @@ func (session *Session) handleClose(close packet.Packet) {
 }
 
 func (session *Session) handleMessage(message packet.Packet) {
-	session.debug("Message received:", message.Data)
+	session.debug("Message received: ", message.Data)
 
 	event := MessageEvent{
 		SessionID: session.id,
@@ -228,9 +228,9 @@ func (session *Session) emit(event interface{}) {
 
 func (session *Session) debug(data ...interface{}) {
 	prefix := []interface{}{
-		"[",
+		"[ ",
 		session.id,
-		"]",
+		" ] ",
 	}
 
 	logger.Debug(append(prefix, data...)...)

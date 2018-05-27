@@ -3,8 +3,8 @@ package transport
 import (
 	"net/http"
 
-	"github.com/byonchev/go-engine.io/config"
-	"github.com/byonchev/go-engine.io/packet"
+	"github.com/byonchev/go-engine.io/internal/config"
+	"github.com/byonchev/go-engine.io/internal/packet"
 )
 
 // String identifiers for each supported transport

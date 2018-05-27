@@ -3,7 +3,7 @@ package codec
 import (
 	"io"
 
-	"github.com/byonchev/go-engine.io/packet"
+	"github.com/byonchev/go-engine.io/internal/packet"
 )
 
 // Codec encodes and decodes packets for transportation

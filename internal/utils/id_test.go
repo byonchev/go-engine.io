@@ -4,7 +4,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/byonchev/go-engine.io/utils"
+	"github.com/byonchev/go-engine.io/internal/utils"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/byonchev/go-engine.io/codec"
-	"github.com/byonchev/go-engine.io/logger"
-	"github.com/byonchev/go-engine.io/packet"
+	"github.com/byonchev/go-engine.io/internal/codec"
+	"github.com/byonchev/go-engine.io/internal/logger"
+	"github.com/byonchev/go-engine.io/internal/packet"
 )
 
 // Polling is the standard polling transport
@@ -113,7 +113,7 @@ func (transport *Polling) read(reader io.Reader, codec codec.Codec) {
 	payload, err := codec.Decode(reader)
 
 	if err != nil {
-		logger.Error("Error decoding messages:", err)
+		logger.Error("Error decoding messages: ", err)
 		return
 	}
 
@@ -132,7 +132,7 @@ func (transport *Polling) write(writer io.Writer, codec codec.Codec) {
 	err := codec.Encode(payload, writer)
 
 	if err != nil {
-		logger.Error("Error encoding messages:", err)
+		logger.Error("Error encoding messages: ", err)
 		return
 	}
 }

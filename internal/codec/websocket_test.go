@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/byonchev/go-engine.io/codec"
-	"github.com/byonchev/go-engine.io/packet"
+	"github.com/byonchev/go-engine.io/internal/codec"
+	"github.com/byonchev/go-engine.io/internal/packet"
 	"github.com/stretchr/testify/assert"
 )
 

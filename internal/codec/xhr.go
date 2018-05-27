@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"unicode/utf8"
 
-	"github.com/byonchev/go-engine.io/packet"
+	"github.com/byonchev/go-engine.io/internal/packet"
 )
 
 var base64Encoding = base64.StdEncoding

@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"unicode"
 
-	"github.com/byonchev/go-engine.io/packet"
+	"github.com/byonchev/go-engine.io/internal/packet"
 )
 
 // Websocket is a codec for encoding packets for websocket transport

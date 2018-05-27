@@ -1,12 +1,13 @@
-package session
+package utils_test
 
 import (
 	"testing"
 	"time"
 
-	"github.com/byonchev/go-engine.io/config"
-	"github.com/byonchev/go-engine.io/packet"
-	"github.com/byonchev/go-engine.io/transport"
+	"github.com/byonchev/go-engine.io/internal/config"
+	"github.com/byonchev/go-engine.io/internal/packet"
+	"github.com/byonchev/go-engine.io/internal/transport"
+	"github.com/byonchev/go-engine.io/internal/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,7 +23,7 @@ func TestHandshakePacket(t *testing.T) {
 		Data:   []byte("{\"sid\":\"100200300\",\"upgrades\":[\"websocket\"],\"pingTimeout\":2000,\"pingInterval\":1000}"),
 	}
 
-	actual := createHandshakePacket("100200300", &transport.Polling{}, config)
+	actual := utils.CreateHandshakePacket("100200300", &transport.Polling{}, config)
 
 	assert.Equal(t, expected, actual, "handshake packet is invalid")
 }

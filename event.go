@@ -1,4 +1,4 @@
-package session
+package eio
 
 // ConnectEvent is emitted on new client connection
 type ConnectEvent struct {

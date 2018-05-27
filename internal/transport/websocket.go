@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/byonchev/go-engine.io/codec"
-	"github.com/byonchev/go-engine.io/logger"
-	"github.com/byonchev/go-engine.io/packet"
+	"github.com/byonchev/go-engine.io/internal/codec"
+	"github.com/byonchev/go-engine.io/internal/logger"
+	"github.com/byonchev/go-engine.io/internal/packet"
 	"github.com/gorilla/websocket"
 )
 
@@ -59,7 +59,7 @@ func (transport *Websocket) HandleRequest(writer http.ResponseWriter, request *h
 	socket, err := upgrader.Upgrade(writer, request, nil)
 
 	if err != nil {
-		logger.Error("Websocket upgrade failed:", err)
+		logger.Error("Websocket upgrade failed: ", err)
 		return
 	}
 

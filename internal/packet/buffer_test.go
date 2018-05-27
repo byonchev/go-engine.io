@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/byonchev/go-engine.io/packet"
+	"github.com/byonchev/go-engine.io/internal/packet"
 	"github.com/stretchr/testify/assert"
 )
 

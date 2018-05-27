@@ -1,4 +1,4 @@
-package engine
+package eio
 
 import (
 	"errors"
@@ -7,11 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/byonchev/go-engine.io/config"
-	"github.com/byonchev/go-engine.io/logger"
-	"github.com/byonchev/go-engine.io/packet"
-	"github.com/byonchev/go-engine.io/session"
-	"github.com/byonchev/go-engine.io/transport"
+	"github.com/byonchev/go-engine.io/internal/config"
+	"github.com/byonchev/go-engine.io/internal/logger"
+	"github.com/byonchev/go-engine.io/internal/packet"
+	"github.com/byonchev/go-engine.io/internal/transport"
 )
 
 // Server defines engine.io http endpoint and holds connected clients
@@ -20,7 +19,7 @@ type Server struct {
 
 	sync.RWMutex
 
-	clients map[string]*session.Session
+	clients map[string]*Session
 
 	events chan interface{}
 }
@@ -28,7 +27,7 @@ type Server struct {
 // NewServer creates a new engine server
 func NewServer() *Server {
 	server := &Server{
-		clients: make(map[string]*session.Session),
+		clients: make(map[string]*Session),
 		events:  make(chan interface{}),
 
 		Config: config.Config{
@@ -56,7 +55,7 @@ func (server *Server) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 
 	sessionID := request.URL.Query().Get("sid")
 
-	var client *session.Session
+	var client *Session
 
 	if sessionID == "" {
 		client = server.createSession(request.URL.Query())
@@ -65,7 +64,7 @@ func (server *Server) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 	}
 
 	if client == nil {
-		logger.Error("Session", sessionID, "not found")
+		logger.Error("Session ", sessionID, " not found")
 		return
 	}
 
@@ -90,6 +89,11 @@ func (server *Server) Send(id string, binary bool, data []byte) error {
 	return session.Send(packet.NewMessage(binary, data))
 }
 
+// SetLogger initializes logging with a specific implementation
+func (server *Server) SetLogger(loggerInstance logger.Logger) {
+	logger.Init(loggerInstance)
+}
+
 func (server *Server) checkPing() {
 	interval := server.PingInterval + server.PingTimeout
 
@@ -110,8 +114,8 @@ func (server *Server) checkPing() {
 	}
 }
 
-func (server *Server) createSession(params url.Values) *session.Session {
-	session := session.NewSession(server.Config, server.events)
+func (server *Server) createSession(params url.Values) *Session {
+	session := NewSession(server.Config, server.events)
 
 	server.Lock()
 	defer server.Unlock()
@@ -121,7 +125,7 @@ func (server *Server) createSession(params url.Values) *session.Session {
 	return session
 }
 
-func (server *Server) findSession(id string) *session.Session {
+func (server *Server) findSession(id string) *Session {
 	server.RLock()
 	defer server.RUnlock()
 

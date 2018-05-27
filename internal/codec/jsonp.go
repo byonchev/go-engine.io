@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/byonchev/go-engine.io/packet"
+	"github.com/byonchev/go-engine.io/internal/packet"
 )
 
 // JSONP is a codec for encoding messages for cross-domain polling
