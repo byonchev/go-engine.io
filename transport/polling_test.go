@@ -15,7 +15,7 @@ import (
 
 func TestPollingSendBufferedPayload(t *testing.T) {
 	codec := codec.XHR{}
-	transport := transport.NewPolling(0, 0)
+	transport := createPollingTransport()
 
 	packets := []packet.Packet{
 		packet.NewStringMessage("hello"),
@@ -36,7 +36,7 @@ func TestPollingSendBufferedPayload(t *testing.T) {
 
 func TestPollingSendPayloadAfterRequest(t *testing.T) {
 	codec := codec.XHR{}
-	transport := transport.NewPolling(0, 0)
+	transport := createPollingTransport()
 
 	sent := packet.NewClose()
 
@@ -51,7 +51,7 @@ func TestPollingSendPayloadAfterRequest(t *testing.T) {
 }
 
 func TestPollingSendAndShutdown(t *testing.T) {
-	transport := transport.NewPolling(0, 0)
+	transport := createPollingTransport()
 
 	transport.Send(packet.NewNOOP())
 	transport.Shutdown()
@@ -64,7 +64,7 @@ func TestPollingSendAndShutdown(t *testing.T) {
 
 func TestPollingReceivePayload(t *testing.T) {
 	codec := codec.XHR{}
-	transport := transport.NewPolling(0, 10)
+	transport := transport.NewPolling(0, 10, nil)
 
 	payload := packet.Payload{
 		packet.NewStringMessage("hello"),
@@ -87,7 +87,7 @@ func TestPollingReceivePayload(t *testing.T) {
 
 func TestPollingReceiveAndShutdown(t *testing.T) {
 	codec := codec.XHR{}
-	transport := transport.NewPolling(0, 10)
+	transport := transport.NewPolling(0, 10, nil)
 
 	sent := packet.NewNOOP()
 
@@ -106,7 +106,7 @@ func TestPollingReceiveAndShutdown(t *testing.T) {
 }
 
 func TestPollingInvalidHTTPMethod(t *testing.T) {
-	transport := transport.NewPolling(0, 0)
+	transport := createPollingTransport()
 
 	request, _ := http.NewRequest("DELETE", "/", nil)
 	writer := httptest.NewRecorder()
@@ -117,7 +117,7 @@ func TestPollingInvalidHTTPMethod(t *testing.T) {
 }
 
 func TestPollingReceiveInvalidPayload(t *testing.T) {
-	transport := transport.NewPolling(0, 0)
+	transport := createPollingTransport()
 
 	buffer := bytes.NewBuffer([]byte("INVALID:INVALID"))
 
@@ -129,6 +129,10 @@ func TestPollingReceiveInvalidPayload(t *testing.T) {
 	}()
 
 	time.Sleep(100 * time.Millisecond)
+}
+
+func createPollingTransport() *transport.Polling {
+	return transport.NewPolling(0, 0, nil)
 }
 
 func clientReceive(transport transport.Transport) <-chan *bytes.Buffer {

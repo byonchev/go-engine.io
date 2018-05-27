@@ -42,7 +42,7 @@ func (transport *Polling) HandleRequest(writer http.ResponseWriter, request *htt
 		return
 	}
 
-	if !transport.originCheck(request) {
+	if transport.originCheck != nil && !transport.originCheck(request) {
 		writer.WriteHeader(http.StatusForbidden)
 		return
 	}

@@ -22,7 +22,7 @@ func TestHandshakePacket(t *testing.T) {
 		Data:   []byte("{\"sid\":\"100200300\",\"upgrades\":[\"websocket\"],\"pingTimeout\":2000,\"pingInterval\":1000}"),
 	}
 
-	actual := createHandshakePacket("100200300", transport.NewPolling(0, 0), config)
+	actual := createHandshakePacket("100200300", &transport.Polling{}, config)
 
 	assert.Equal(t, expected, actual, "handshake packet is invalid")
 }
