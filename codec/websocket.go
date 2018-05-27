@@ -9,11 +9,11 @@ import (
 	"github.com/byonchev/go-engine.io/packet"
 )
 
-// WebSocket is a codec for encoding packets for websocket transport
-type WebSocket struct{}
+// Websocket is a codec for encoding packets for websocket transport
+type Websocket struct{}
 
 // Encode encodes a single packet in payload
-func (codec WebSocket) Encode(payload packet.Payload, writer io.Writer) error {
+func (codec Websocket) Encode(payload packet.Payload, writer io.Writer) error {
 	if len(payload) == 0 {
 		return nil
 	}
@@ -30,7 +30,7 @@ func (codec WebSocket) Encode(payload packet.Payload, writer io.Writer) error {
 }
 
 // Decode decodes single packet from encoded payload
-func (WebSocket) Decode(reader io.Reader) (packet.Payload, error) {
+func (Websocket) Decode(reader io.Reader) (packet.Payload, error) {
 	encoded, err := ioutil.ReadAll(reader)
 
 	if err != nil {
@@ -65,7 +65,7 @@ func (WebSocket) Decode(reader io.Reader) (packet.Payload, error) {
 	return packet.Payload{decoded}, nil
 }
 
-func (codec WebSocket) encodePacket(packet packet.Packet, writer io.Writer) error {
+func (codec Websocket) encodePacket(packet packet.Packet, writer io.Writer) error {
 	encoded := make([]byte, len(packet.Data)+1)
 
 	var packetType byte

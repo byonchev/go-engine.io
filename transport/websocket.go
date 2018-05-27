@@ -6,13 +6,12 @@ import (
 	"sync"
 
 	"github.com/byonchev/go-engine.io/codec"
-	"github.com/byonchev/go-engine.io/logger"
 	"github.com/byonchev/go-engine.io/packet"
 	"github.com/gorilla/websocket"
 )
 
-// WebSocket handles protocol upgrade and transmission over websockets
-type WebSocket struct {
+// Websocket handles protocol upgrade and transmission over websockets
+type Websocket struct {
 	writeLock sync.Mutex
 	readLock  sync.Mutex
 
@@ -23,11 +22,11 @@ type WebSocket struct {
 	codec codec.Codec
 }
 
-// NewWebSocket creates new WebSocket transport
-func NewWebSocket() *WebSocket {
-	transport := &WebSocket{
+// NewWebsocket creates new Websocket transport
+func NewWebsocket() *Websocket {
+	transport := &Websocket{
 		running: false,
-		codec:   codec.WebSocket{},
+		codec:   codec.Websocket{},
 	}
 
 	transport.lock()
@@ -36,7 +35,7 @@ func NewWebSocket() *WebSocket {
 }
 
 // HandleRequest handles initial websocket upgrade request
-func (transport *WebSocket) HandleRequest(writer http.ResponseWriter, request *http.Request) {
+func (transport *Websocket) HandleRequest(writer http.ResponseWriter, request *http.Request) error {
 	defer transport.unlock()
 
 	upgrader := websocket.Upgrader{
@@ -47,17 +46,17 @@ func (transport *WebSocket) HandleRequest(writer http.ResponseWriter, request *h
 	socket, err := upgrader.Upgrade(writer, request, nil)
 
 	if err != nil {
-		logger.Error("WebSocket upgrade failed:", err)
-		writer.WriteHeader(http.StatusBadRequest)
-		return
+		return err
 	}
 
 	transport.socket = socket
 	transport.running = true
+
+	return nil
 }
 
 // Shutdown closes the client socket
-func (transport *WebSocket) Shutdown() {
+func (transport *Websocket) Shutdown() {
 	transport.lock()
 	defer transport.unlock()
 
@@ -66,7 +65,7 @@ func (transport *WebSocket) Shutdown() {
 }
 
 // Send writes packet to the client socket
-func (transport *WebSocket) Send(message packet.Packet) error {
+func (transport *Websocket) Send(message packet.Packet) error {
 	transport.writeLock.Lock()
 	defer transport.writeLock.Unlock()
 
@@ -100,7 +99,7 @@ func (transport *WebSocket) Send(message packet.Packet) error {
 }
 
 // Receive receives the next packet from the client socket
-func (transport *WebSocket) Receive() (packet.Packet, error) {
+func (transport *Websocket) Receive() (packet.Packet, error) {
 	transport.readLock.Lock()
 	defer transport.readLock.Unlock()
 
@@ -134,21 +133,21 @@ func (transport *WebSocket) Receive() (packet.Packet, error) {
 }
 
 // Type returns the transport identifier
-func (transport *WebSocket) Type() string {
+func (transport *Websocket) Type() string {
 	return WebsocketType
 }
 
 // Upgrades returns the possible transport upgrades
-func (transport *WebSocket) Upgrades() []string {
+func (transport *Websocket) Upgrades() []string {
 	return []string{}
 }
 
-func (transport *WebSocket) lock() {
+func (transport *Websocket) lock() {
 	transport.readLock.Lock()
 	transport.writeLock.Lock()
 }
 
-func (transport *WebSocket) unlock() {
+func (transport *Websocket) unlock() {
 	transport.readLock.Unlock()
 	transport.writeLock.Unlock()
 }

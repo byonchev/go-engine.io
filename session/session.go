@@ -59,7 +59,11 @@ func (session *Session) HandleRequest(writer http.ResponseWriter, request *http.
 
 	if requestedTransport != session.transport.Type() {
 		newTransport := transport.NewTransport(requestedTransport)
-		session.upgrade(writer, request, newTransport)
+		err := session.upgrade(writer, request, newTransport)
+
+		if err != nil {
+			logger.Error(err)
+		}
 	} else {
 		session.transport.HandleRequest(writer, request)
 	}
@@ -136,6 +140,7 @@ func (session *Session) receivePackets() {
 		received, err := session.transport.Receive()
 
 		if err != nil {
+			logger.Error(err)
 			continue
 		}
 
@@ -176,8 +181,11 @@ func (session *Session) handleMessage(message packet.Packet) {
 }
 
 func (session *Session) upgrade(writer http.ResponseWriter, request *http.Request, target transport.Transport) error {
-	// TODO: Error
-	target.HandleRequest(writer, request)
+	err := target.HandleRequest(writer, request)
+
+	if err != nil {
+		return err
+	}
 
 	session.debug("Upgrading transport")
 
@@ -188,25 +196,27 @@ func (session *Session) upgrade(writer http.ResponseWriter, request *http.Reques
 			return err
 		}
 
-		if received.Type == packet.Ping && string(received.Data) == "probe" {
+		switch true {
+		case received.Type == packet.Ping && string(received.Data) == "probe":
+			session.debug("Probe received")
+
 			err := target.Send(packet.NewPong(received.Data))
 
 			if err != nil {
 				return err
 			}
 
-			session.debug("Sending pong probe")
+			session.debug("Poll cycle initiated")
 
 			session.transport.Send(packet.NewNOOP())
-		} else if received.Type == packet.Upgrade {
+		case received.Type == packet.Upgrade:
 			session.debug("Upgrade packet recevied")
+
 			session.transport.Shutdown()
 			session.transport = target
-			break
+			return nil
 		}
 	}
-
-	return errors.New("upgrade failed")
 }
 
 func (session *Session) emit(event interface{}) {

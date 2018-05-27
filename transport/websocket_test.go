@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestWebSocketSend(t *testing.T) {
-	codec, transport, server, client := setupWebSockets()
+func TestWebsocketSend(t *testing.T) {
+	codec, transport, server, client := setupWebsockets()
 	defer server.Close()
 
 	tests := []struct {
@@ -44,8 +44,8 @@ func TestWebSocketSend(t *testing.T) {
 	}
 }
 
-func TestWebSocketReceive(t *testing.T) {
-	codec, transport, server, client := setupWebSockets()
+func TestWebsocketReceive(t *testing.T) {
+	codec, transport, server, client := setupWebsockets()
 	defer server.Close()
 
 	tests := []struct {
@@ -74,8 +74,8 @@ func TestWebSocketReceive(t *testing.T) {
 	}
 }
 
-func TestWebSocketSendAfterShutdown(t *testing.T) {
-	_, transport, server, client := setupWebSockets()
+func TestWebsocketSendAfterShutdown(t *testing.T) {
+	_, transport, server, client := setupWebsockets()
 	defer server.Close()
 
 	transport.Shutdown()
@@ -88,8 +88,8 @@ func TestWebSocketSendAfterShutdown(t *testing.T) {
 	assert.Equal(t, expected, actual, "packet was sent to the client after shutdown")
 }
 
-func TestWebSocketReceiveAfterShutdown(t *testing.T) {
-	codec, transport, server, client := setupWebSockets()
+func TestWebsocketReceiveAfterShutdown(t *testing.T) {
+	codec, transport, server, client := setupWebsockets()
 	defer server.Close()
 
 	var buffer bytes.Buffer
@@ -104,8 +104,8 @@ func TestWebSocketReceiveAfterShutdown(t *testing.T) {
 	assert.Equal(t, packet.Packet{}, actual, "packet was received from client after shutdown")
 }
 
-func TestWebSocketUpgradeError(t *testing.T) {
-	transport := createWebSocketTransport()
+func TestWebsocketUpgradeError(t *testing.T) {
+	transport := createWebsocketTransport()
 
 	request, _ := http.NewRequest("POST", "/", nil)
 	writer := httptest.NewRecorder()
@@ -115,11 +115,11 @@ func TestWebSocketUpgradeError(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, writer.Code, "upgrade failure doesn't return 400")
 }
 
-func createWebSocketTransport() *transport.WebSocket {
-	return transport.NewWebSocket()
+func createWebsocketTransport() *transport.Websocket {
+	return transport.NewWebsocket()
 }
 
-func createServer(transport *transport.WebSocket) *httptest.Server {
+func createServer(transport *transport.Websocket) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(transport.HandleRequest))
 }
 
@@ -131,9 +131,9 @@ func connectClient(server *httptest.Server) *websocket.Conn {
 	return client
 }
 
-func setupWebSockets() (codec.Codec, *transport.WebSocket, *httptest.Server, *websocket.Conn) {
-	codec := codec.WebSocket{}
-	transport := createWebSocketTransport()
+func setupWebsockets() (codec.Codec, *transport.Websocket, *httptest.Server, *websocket.Conn) {
+	codec := codec.Websocket{}
+	transport := createWebsocketTransport()
 	server := createServer(transport)
 	client := connectClient(server)
 

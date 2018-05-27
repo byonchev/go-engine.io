@@ -17,7 +17,7 @@ type Transport interface {
 	Type() string
 	Upgrades() []string
 
-	HandleRequest(http.ResponseWriter, *http.Request)
+	HandleRequest(http.ResponseWriter, *http.Request) error
 
 	Send(packet.Packet) error
 	Receive() (packet.Packet, error)
@@ -29,7 +29,7 @@ type Transport interface {
 func NewTransport(name string) Transport {
 	switch name {
 	case WebsocketType:
-		return NewWebSocket()
+		return NewWebsocket()
 	case PollingType:
 		return NewPolling(10, 10) // TODO: Configuration
 	default:

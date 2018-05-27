@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestWebSocketEncode(t *testing.T) {
-	codec := codec.WebSocket{}
+func TestWebsocketEncode(t *testing.T) {
+	codec := codec.Websocket{}
 
 	tests := []struct {
 		payload packet.Payload
@@ -60,16 +60,16 @@ func TestWebSocketEncode(t *testing.T) {
 	}
 }
 
-func TestWebSocketEncodeWriterError(t *testing.T) {
-	codec := codec.WebSocket{}
+func TestWebsocketEncodeWriterError(t *testing.T) {
+	codec := codec.Websocket{}
 
 	err := codec.Encode(packet.Payload{packet.NewNOOP()}, errorWriter{})
 
 	assert.Error(t, err, "reader error was expected")
 }
 
-func TestWebSocketDecode(t *testing.T) {
-	codec := codec.WebSocket{}
+func TestWebsocketDecode(t *testing.T) {
+	codec := codec.Websocket{}
 
 	tests := []struct {
 		data    []byte
@@ -106,8 +106,8 @@ func TestWebSocketDecode(t *testing.T) {
 	}
 }
 
-func TestWebSocketDecodeErrors(t *testing.T) {
-	codec := codec.WebSocket{}
+func TestWebsocketDecodeErrors(t *testing.T) {
+	codec := codec.Websocket{}
 
 	data := []byte{}
 
@@ -119,16 +119,16 @@ func TestWebSocketDecodeErrors(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestWebSocketDecodeReaderError(t *testing.T) {
-	codec := codec.WebSocket{}
+func TestWebsocketDecodeReaderError(t *testing.T) {
+	codec := codec.Websocket{}
 
 	_, err := codec.Decode(errorReader{})
 
 	assert.Error(t, err, "reader error was expected")
 }
 
-func BenchmarkWebSocketEncode(b *testing.B) {
-	codec := codec.WebSocket{}
+func BenchmarkWebsocketEncode(b *testing.B) {
+	codec := codec.Websocket{}
 
 	payload := packet.Payload{
 		packet.NewOpen([]byte("hello")),
@@ -143,8 +143,8 @@ func BenchmarkWebSocketEncode(b *testing.B) {
 	}
 }
 
-func BenchmarkWebSocketDecode(b *testing.B) {
-	codec := codec.WebSocket{}
+func BenchmarkWebsocketDecode(b *testing.B) {
+	codec := codec.Websocket{}
 
 	buffer := bytes.NewBuffer([]byte("0hello"))
 

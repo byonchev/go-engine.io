@@ -34,9 +34,9 @@ func NewPolling(bufferFlushLimit int, receiveBufferSize int) *Polling {
 }
 
 // HandleRequest handles HTTP polling requests
-func (transport *Polling) HandleRequest(writer http.ResponseWriter, request *http.Request) {
+func (transport *Polling) HandleRequest(writer http.ResponseWriter, request *http.Request) error {
 	if !transport.running {
-		return
+		return errors.New("transport not running")
 	}
 
 	method := request.Method
@@ -50,6 +50,8 @@ func (transport *Polling) HandleRequest(writer http.ResponseWriter, request *htt
 	default:
 		writer.WriteHeader(http.StatusMethodNotAllowed)
 	}
+
+	return nil
 }
 
 // Send buffers packets for sending on next poll cycle
