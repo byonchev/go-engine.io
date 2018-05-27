@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/byonchev/go-engine.io/config"
 	"github.com/byonchev/go-engine.io/logger"
 	"github.com/byonchev/go-engine.io/packet"
 	"github.com/byonchev/go-engine.io/transport"
@@ -15,7 +16,7 @@ import (
 // Session holds information for a single connected client
 type Session struct {
 	id        string
-	config    Config
+	config    config.Config
 	transport transport.Transport
 
 	events chan<- interface{}
@@ -29,7 +30,7 @@ type Session struct {
 }
 
 // NewSession creates a new client session
-func NewSession(config Config, events chan<- interface{}) *Session {
+func NewSession(config config.Config, events chan<- interface{}) *Session {
 	return &Session{
 		id:     utils.GenerateBase64ID(),
 		config: config,
@@ -50,7 +51,7 @@ func (session *Session) HandleRequest(writer http.ResponseWriter, request *http.
 	requestedTransport := query.Get("transport")
 
 	if session.transport == nil {
-		session.transport = transport.NewTransport(requestedTransport)
+		session.transport = transport.NewTransport(requestedTransport, session.config)
 	}
 
 	if !session.handshaked {
@@ -58,7 +59,7 @@ func (session *Session) HandleRequest(writer http.ResponseWriter, request *http.
 	}
 
 	if requestedTransport != session.transport.Type() {
-		newTransport := transport.NewTransport(requestedTransport)
+		newTransport := transport.NewTransport(requestedTransport, session.config)
 		err := session.upgrade(writer, request, newTransport)
 
 		if err != nil {
@@ -181,10 +182,10 @@ func (session *Session) handleMessage(message packet.Packet) {
 }
 
 func (session *Session) upgrade(writer http.ResponseWriter, request *http.Request, target transport.Transport) error {
-	err := target.HandleRequest(writer, request)
+	target.HandleRequest(writer, request)
 
-	if err != nil {
-		return err
+	if !target.Running() {
+		return errors.New("transport failure")
 	}
 
 	session.debug("Upgrading transport")
@@ -198,7 +199,7 @@ func (session *Session) upgrade(writer http.ResponseWriter, request *http.Reques
 
 		switch true {
 		case received.Type == packet.Ping && string(received.Data) == "probe":
-			session.debug("Probe received")
+			session.debug("Upgrade probe received")
 
 			err := target.Send(packet.NewPong(received.Data))
 

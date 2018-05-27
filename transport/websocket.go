@@ -6,12 +6,18 @@ import (
 	"sync"
 
 	"github.com/byonchev/go-engine.io/codec"
+	"github.com/byonchev/go-engine.io/logger"
 	"github.com/byonchev/go-engine.io/packet"
 	"github.com/gorilla/websocket"
 )
 
 // Websocket handles protocol upgrade and transmission over websockets
 type Websocket struct {
+	readBufferSize    int
+	writeBufferSize   int
+	enableCompression bool
+	originCheck       func(*http.Request) bool
+
 	writeLock sync.Mutex
 	readLock  sync.Mutex
 
@@ -23,8 +29,13 @@ type Websocket struct {
 }
 
 // NewWebsocket creates new Websocket transport
-func NewWebsocket() *Websocket {
+func NewWebsocket(readBufferSize int, writeBufferSize int, enableCompression bool, originCheck func(*http.Request) bool) *Websocket {
 	transport := &Websocket{
+		readBufferSize:    readBufferSize,
+		writeBufferSize:   writeBufferSize,
+		enableCompression: enableCompression,
+		originCheck:       originCheck,
+
 		running: false,
 		codec:   codec.Websocket{},
 	}
@@ -35,24 +46,25 @@ func NewWebsocket() *Websocket {
 }
 
 // HandleRequest handles initial websocket upgrade request
-func (transport *Websocket) HandleRequest(writer http.ResponseWriter, request *http.Request) error {
+func (transport *Websocket) HandleRequest(writer http.ResponseWriter, request *http.Request) {
 	defer transport.unlock()
 
 	upgrader := websocket.Upgrader{
-		ReadBufferSize:  1024, // TODO: Configuration!
-		WriteBufferSize: 1024,
+		ReadBufferSize:    transport.readBufferSize,
+		WriteBufferSize:   transport.writeBufferSize,
+		EnableCompression: transport.enableCompression,
+		CheckOrigin:       transport.originCheck,
 	}
 
 	socket, err := upgrader.Upgrade(writer, request, nil)
 
 	if err != nil {
-		return err
+		logger.Error("Websocket upgrade failed:", err)
+		return
 	}
 
 	transport.socket = socket
 	transport.running = true
-
-	return nil
 }
 
 // Shutdown closes the client socket
@@ -130,6 +142,11 @@ func (transport *Websocket) Receive() (packet.Packet, error) {
 	}
 
 	return payload[0], nil
+}
+
+// Running returns true if the transport is active
+func (transport *Websocket) Running() bool {
+	return transport.running
 }
 
 // Type returns the transport identifier

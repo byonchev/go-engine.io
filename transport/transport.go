@@ -3,6 +3,7 @@ package transport
 import (
 	"net/http"
 
+	"github.com/byonchev/go-engine.io/config"
 	"github.com/byonchev/go-engine.io/packet"
 )
 
@@ -17,21 +18,31 @@ type Transport interface {
 	Type() string
 	Upgrades() []string
 
-	HandleRequest(http.ResponseWriter, *http.Request) error
+	HandleRequest(http.ResponseWriter, *http.Request)
 
 	Send(packet.Packet) error
 	Receive() (packet.Packet, error)
 
 	Shutdown()
+	Running() bool
 }
 
 // NewTransport creates a transport of the selected type
-func NewTransport(name string) Transport {
+func NewTransport(name string, config config.Config) Transport {
+	originCheck := config.CheckOrigin
+
 	switch name {
 	case WebsocketType:
-		return NewWebsocket()
+		readBufferSize := config.WebsocketReadBufferSize
+		writeBufferSize := config.WebsocketWriteBufferSize
+		enableCompression := config.PerMessageDeflate
+
+		return NewWebsocket(readBufferSize, writeBufferSize, enableCompression, originCheck)
 	case PollingType:
-		return NewPolling(10, 10) // TODO: Configuration
+		flushLimit := config.PollingBufferFlushLimit
+		receiveLimit := config.PollingBufferReceiveLimit
+
+		return NewPolling(flushLimit, receiveLimit, originCheck)
 	default:
 		return nil
 	}

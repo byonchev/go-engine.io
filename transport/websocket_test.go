@@ -116,7 +116,7 @@ func TestWebsocketUpgradeError(t *testing.T) {
 }
 
 func createWebsocketTransport() *transport.Websocket {
-	return transport.NewWebsocket()
+	return transport.NewWebsocket(1024, 1024, false, func(*http.Request) bool { return true })
 }
 
 func createServer(transport *transport.Websocket) *httptest.Server {

@@ -13,6 +13,8 @@ import (
 
 // Polling is the standard polling transport
 type Polling struct {
+	originCheck func(*http.Request) bool
+
 	running bool
 
 	buffer *packet.Buffer
@@ -23,20 +25,26 @@ type Polling struct {
 }
 
 // NewPolling creates new polling transport
-func NewPolling(bufferFlushLimit int, receiveBufferSize int) *Polling {
+func NewPolling(bufferFlushLimit int, receiveBufferSize int, originCheck func(*http.Request) bool) *Polling {
 	transport := &Polling{
-		buffer:   packet.NewBuffer(bufferFlushLimit),
-		received: make(chan packet.Packet, receiveBufferSize),
-		running:  true,
+		originCheck: originCheck,
+		buffer:      packet.NewBuffer(bufferFlushLimit),
+		received:    make(chan packet.Packet, receiveBufferSize),
+		running:     true,
 	}
 
 	return transport
 }
 
 // HandleRequest handles HTTP polling requests
-func (transport *Polling) HandleRequest(writer http.ResponseWriter, request *http.Request) error {
+func (transport *Polling) HandleRequest(writer http.ResponseWriter, request *http.Request) {
 	if !transport.running {
-		return errors.New("transport not running")
+		return
+	}
+
+	if !transport.originCheck(request) {
+		writer.WriteHeader(http.StatusForbidden)
+		return
 	}
 
 	method := request.Method
@@ -50,8 +58,6 @@ func (transport *Polling) HandleRequest(writer http.ResponseWriter, request *htt
 	default:
 		writer.WriteHeader(http.StatusMethodNotAllowed)
 	}
-
-	return nil
 }
 
 // Send buffers packets for sending on next poll cycle
@@ -86,6 +92,11 @@ func (transport *Polling) Shutdown() {
 	transport.buffer.Close()
 
 	close(transport.received)
+}
+
+// Running returns true if the transport is active
+func (transport *Polling) Running() bool {
+	return transport.running
 }
 
 // Type returns the transport identifier

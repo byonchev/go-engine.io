@@ -7,27 +7,43 @@ import (
 	"sync"
 	"time"
 
+	"github.com/byonchev/go-engine.io/config"
 	"github.com/byonchev/go-engine.io/logger"
 	"github.com/byonchev/go-engine.io/packet"
 	"github.com/byonchev/go-engine.io/session"
+	"github.com/byonchev/go-engine.io/transport"
 )
 
 // Server defines engine.io http endpoint and holds connected clients
 type Server struct {
+	config.Config
+
 	sync.RWMutex
 
-	config  session.Config
 	clients map[string]*session.Session
 
 	events chan interface{}
 }
 
 // NewServer creates a new engine server
-func NewServer(config session.Config) *Server {
+func NewServer() *Server {
 	server := &Server{
-		config:  config,
 		clients: make(map[string]*session.Session),
 		events:  make(chan interface{}),
+
+		Config: config.Config{
+			PingInterval:              25 * time.Second,
+			PingTimeout:               60 * time.Second,
+			Transports:                []string{transport.PollingType, transport.WebsocketType},
+			AllowUpgrades:             true,
+			UpgradeTimeout:            10 * time.Second,
+			PollingBufferFlushLimit:   10,
+			PollingBufferReceiveLimit: 10,
+			WebsocketReadBufferSize:   1024,
+			WebsocketWriteBufferSize:  1024,
+			PerMessageDeflate:         true,
+			CheckOrigin:               func(*http.Request) bool { return true },
+		},
 	}
 
 	go server.checkPing()
@@ -75,7 +91,7 @@ func (server *Server) Send(id string, binary bool, data []byte) error {
 }
 
 func (server *Server) checkPing() {
-	interval := server.config.PingInterval + server.config.PingTimeout
+	interval := server.PingInterval + server.PingTimeout
 
 	for {
 		time.Sleep(interval)
@@ -95,7 +111,7 @@ func (server *Server) checkPing() {
 }
 
 func (server *Server) createSession(params url.Values) *session.Session {
-	session := session.NewSession(server.config, server.events)
+	session := session.NewSession(server.Config, server.events)
 
 	server.Lock()
 	defer server.Unlock()
