@@ -8,6 +8,7 @@ type ConnectEvent struct {
 // DisconnectEvent is emitted on client connection timeout
 type DisconnectEvent struct {
 	SessionID string
+	Reason    string
 }
 
 // MessageEvent is emitted on received client message

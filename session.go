@@ -2,6 +2,7 @@ package eio
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -84,7 +85,7 @@ func (session *Session) Send(packet packet.Packet) error {
 }
 
 // Close changes the session state and closes the channels
-func (session *Session) Close(reason interface{}) {
+func (session *Session) Close(reason string) {
 	if session.closed {
 		return
 	}
@@ -96,7 +97,7 @@ func (session *Session) Close(reason interface{}) {
 
 	session.debug("Session closed. Reason: ", reason)
 
-	session.emit(DisconnectEvent{session.id})
+	session.emit(DisconnectEvent{session.id, reason})
 }
 
 // ID returns the session ID
@@ -138,23 +139,36 @@ func (session *Session) ping() {
 
 func (session *Session) receivePackets() {
 	for !session.closed {
-		received, err := session.transport.Receive()
+		transport := session.transport
 
-		if err != nil {
-			logger.Error("Receive error: ", err)
+		received, err := transport.Receive()
+
+		switch err {
+		case io.EOF:
+			if !session.transport.Running() {
+				session.Close("EOF")
+				return
+			}
+
 			continue
+		case nil:
+			session.handlePacket(received)
+		default:
+			logger.Error("Receive error: ", err)
 		}
+	}
+}
 
-		session.ping()
+func (session *Session) handlePacket(received packet.Packet) {
+	session.ping()
 
-		switch received.Type {
-		case packet.Ping:
-			session.handlePing(received)
-		case packet.Close:
-			session.handleClose(received)
-		case packet.Message:
-			session.handleMessage(received)
-		}
+	switch received.Type {
+	case packet.Ping:
+		session.handlePing(received)
+	case packet.Close:
+		session.handleClose(received)
+	case packet.Message:
+		session.handleMessage(received)
 	}
 }
 

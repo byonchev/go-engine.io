@@ -2,6 +2,7 @@ package transport
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"sync"
 
@@ -72,8 +73,7 @@ func (transport *Websocket) Shutdown() {
 	transport.lock()
 	defer transport.unlock()
 
-	transport.running = false
-	transport.socket.Close()
+	transport.close()
 }
 
 // Send writes packet to the client socket
@@ -116,15 +116,15 @@ func (transport *Websocket) Receive() (packet.Packet, error) {
 	defer transport.readLock.Unlock()
 
 	if !transport.running {
-		return packet.Packet{}, errors.New("transport not running")
+		return packet.Packet{}, io.EOF
 	}
 
 	_, reader, err := transport.socket.NextReader()
 
 	if err != nil {
-		transport.running = false
+		transport.close()
 
-		return packet.Packet{}, err
+		return packet.Packet{}, io.EOF
 	}
 
 	payload, err := transport.codec.Decode(reader)
@@ -157,6 +157,11 @@ func (transport *Websocket) Type() string {
 // Upgrades returns the possible transport upgrades
 func (transport *Websocket) Upgrades() []string {
 	return []string{}
+}
+
+func (transport *Websocket) close() {
+	transport.running = false
+	transport.socket.Close()
 }
 
 func (transport *Websocket) lock() {

@@ -1,7 +1,6 @@
 package transport
 
 import (
-	"errors"
 	"io"
 	"net/http"
 	"sync"
@@ -72,7 +71,7 @@ func (transport *Polling) Receive() (packet.Packet, error) {
 	received, success := <-transport.received
 
 	if !success {
-		return packet.Packet{}, errors.New("transport is stopped")
+		return packet.Packet{}, io.EOF
 	}
 
 	return received, nil
