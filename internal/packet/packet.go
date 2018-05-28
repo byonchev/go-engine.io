@@ -15,22 +15,6 @@ func (packet Packet) String() string {
 	return fmt.Sprintf("[%d] %s", packet.Type, string(packet.Data))
 }
 
-// Payload is a collection of packets
-type Payload []Packet
-
-// ContainsBinary returns true if payload contains at least one binary packet
-func (payload Payload) ContainsBinary() bool {
-	for _, packet := range payload {
-		if !packet.Binary {
-			continue
-		}
-
-		return true
-	}
-
-	return false
-}
-
 // NewOpen creates new open packet
 func NewOpen(data []byte) Packet {
 	return Packet{false, Open, data}
