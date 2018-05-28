@@ -22,10 +22,26 @@ func CreateHandshakePacket(sid string, transport transport.Transport, config con
 		SessionID:    sid,
 		PingInterval: int64(config.PingInterval / time.Millisecond),
 		PingTimeout:  int64(config.PingTimeout / time.Millisecond),
-		Upgrades:     transport.Upgrades(),
+		Upgrades:     getSupportedUpgrades(transport, config),
 	}
 
 	json, _ := json.Marshal(handshake)
 
 	return packet.NewOpen(json)
+}
+
+func getSupportedUpgrades(transport transport.Transport, config config.Config) []string {
+	result := []string{}
+
+	if !config.AllowUpgrades {
+		return result
+	}
+
+	for _, upgrade := range transport.Upgrades() {
+		if StringSliceContains(config.Transports, upgrade) {
+			result = append(result, upgrade)
+		}
+	}
+
+	return result
 }

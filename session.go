@@ -16,8 +16,10 @@ import (
 
 // Session holds information for a single connected client
 type Session struct {
-	id        string
-	config    config.Config
+	id                  string
+	config              config.Config
+	supportedTransports map[string]bool
+
 	transport transport.Transport
 
 	events chan<- interface{}
@@ -32,9 +34,16 @@ type Session struct {
 
 // NewSession creates a new client session
 func NewSession(config config.Config, events chan<- interface{}) *Session {
+	supportedTransports := make(map[string]bool)
+
+	for _, transport := range config.Transports {
+		supportedTransports[transport] = true
+	}
+
 	return &Session{
-		id:     utils.GenerateBase64ID(),
-		config: config,
+		id:                  utils.GenerateBase64ID(),
+		config:              config,
+		supportedTransports: supportedTransports,
 
 		events: events,
 
@@ -44,31 +53,39 @@ func NewSession(config config.Config, events chan<- interface{}) *Session {
 }
 
 // HandleRequest is the bridge between the engine.io endpoint and the selected transport
-// TODO: Refactor
 func (session *Session) HandleRequest(writer http.ResponseWriter, request *http.Request) {
 	defer request.Body.Close()
 
 	query := request.URL.Query()
 	requestedTransport := query.Get("transport")
 
+	if !session.transportSupported(requestedTransport) {
+		logger.Error("Transport ", requestedTransport, " is not supported")
+
+		writer.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	if session.transport == nil {
-		session.transport = transport.NewTransport(requestedTransport, session.config)
+		session.transport = session.createTransport(requestedTransport)
 	}
 
 	if !session.handshaked {
 		go session.handshake()
 	}
 
-	if requestedTransport != session.transport.Type() {
-		newTransport := transport.NewTransport(requestedTransport, session.config)
-		err := session.upgrade(writer, request, newTransport)
+	if session.isUpgradeRequest(requestedTransport) {
+		err := session.upgrade(writer, request, requestedTransport)
 
 		if err != nil {
-			logger.Error("Upgrade error: ", err)
+			logger.Error("Transport upgrade error: ", err)
+			writer.WriteHeader(http.StatusBadRequest)
 		}
-	} else {
-		session.transport.HandleRequest(writer, request)
+
+		return
 	}
+
+	session.transport.HandleRequest(writer, request)
 }
 
 // Send enqueues packets for sending
@@ -93,11 +110,16 @@ func (session *Session) Close(reason string) {
 	session.closed = true
 
 	session.sending.Wait()
-	session.transport.Shutdown()
+
+	if session.transport != nil {
+		session.transport.Shutdown()
+	}
 
 	session.debug("Session closed. Reason: ", reason)
 
 	session.emit(DisconnectEvent{session.id, reason})
+
+	close(session.events)
 }
 
 // ID returns the session ID
@@ -195,27 +217,31 @@ func (session *Session) handleMessage(message packet.Packet) {
 	session.emit(event)
 }
 
-func (session *Session) upgrade(writer http.ResponseWriter, request *http.Request, target transport.Transport) error {
-	target.HandleRequest(writer, request)
+func (session *Session) upgrade(writer http.ResponseWriter, request *http.Request, target string) error {
+	if !session.upgradeSupported(target) {
+		return errors.New("not supported")
+	}
 
-	if !target.Running() {
+	upgrade := session.createTransport(target)
+	upgrade.HandleRequest(writer, request)
+
+	if !upgrade.Running() {
 		return errors.New("transport failure")
 	}
 
 	session.debug("Upgrading transport")
 
 	for {
-		received, err := target.Receive()
+		received, err := upgrade.Receive()
 
 		if err != nil {
 			return err
 		}
 
-		switch true {
-		case received.Type == packet.Ping && string(received.Data) == "probe":
+		if received.Type == packet.Ping && string(received.Data) == "probe" {
 			session.debug("Upgrade probe received")
 
-			err := target.Send(packet.NewPong(received.Data))
+			err := upgrade.Send(packet.NewPong(received.Data))
 
 			if err != nil {
 				return err
@@ -224,14 +250,40 @@ func (session *Session) upgrade(writer http.ResponseWriter, request *http.Reques
 			session.debug("Poll cycle initiated")
 
 			session.transport.Send(packet.NewNOOP())
-		case received.Type == packet.Upgrade:
+
+			continue
+		}
+
+		if received.Type == packet.Upgrade {
 			session.debug("Upgrade packet recevied")
 
 			session.transport.Shutdown()
-			session.transport = target
-			return nil
+			session.transport = upgrade
+
+			break
 		}
 	}
+
+	return nil
+}
+
+func (session *Session) transportSupported(requested string) bool {
+	return session.supportedTransports[requested]
+}
+
+func (session *Session) upgradeSupported(requested string) bool {
+	allowUpgrades := session.config.AllowUpgrades
+	possibleUpgrades := session.transport.Upgrades()
+
+	return allowUpgrades && utils.StringSliceContains(possibleUpgrades, requested)
+}
+
+func (session *Session) isUpgradeRequest(requested string) bool {
+	return session.transport.Type() != requested
+}
+
+func (session *Session) createTransport(requested string) transport.Transport {
+	return transport.NewTransport(requested, session.config)
 }
 
 func (session *Session) emit(event interface{}) {
