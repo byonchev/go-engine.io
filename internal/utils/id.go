@@ -3,7 +3,7 @@ package utils
 import (
 	"encoding/base64"
 
-	"github.com/gofrs/uuid"
+	uuid "github.com/gofrs/uuid/v3"
 )
 
 // GenerateBase64ID generates UUID v4 and encodes it into base64 without padding
