@@ -14,7 +14,7 @@ func main() {
 	logger.SetLevel(logrus.DebugLevel)
 
 	engineIO := eio.NewServer()
-	engineIO.SetLogger(logger)
+	engineIO.Configure(eio.Logger(logger))
 
 	events := engineIO.Events()
 

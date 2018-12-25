@@ -13,17 +13,18 @@ func main() {
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 
-	engineIO := eio.NewServer()
-	engineIO.SetLogger(logger)
+	server := eio.NewServer()
+	server.Configure(
+		eio.Logger(logger),
+		eio.PingInterval(5*time.Second),
+		eio.PingTimeout(10*time.Second),
+		eio.DisableUpgrades(),
+		eio.Transports("polling"),
+		eio.PollingBufferFlushLimit(100),
+		eio.PollingBufferReceiveLimit(50),
+	)
 
-	engineIO.PingInterval = 5 * time.Second
-	engineIO.PingTimeout = 10 * time.Second
-	engineIO.AllowUpgrades = false
-	engineIO.Transports = []string{"polling"}
-	engineIO.PollingBufferFlushLimit = 100
-	engineIO.PollingBufferReceiveLimit = 50
-
-	events := engineIO.Events()
+	events := server.Events()
 
 	go func() {
 		for event := range events {
@@ -38,6 +39,6 @@ func main() {
 		}
 	}()
 
-	http.Handle("/engine.io/", engineIO)
+	http.Handle("/engine.io/", server)
 	http.ListenAndServe(":8080", nil)
 }

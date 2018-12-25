@@ -15,13 +15,11 @@ import (
 
 // Server defines engine.io http endpoint and holds connected clients
 type Server struct {
-	config.Config
-
 	sync.RWMutex
 
+	config  config.Config
 	clients map[string]*Session
-
-	events chan interface{}
+	events  chan interface{}
 }
 
 // NewServer creates a new engine server
@@ -29,8 +27,7 @@ func NewServer() *Server {
 	server := &Server{
 		clients: make(map[string]*Session),
 		events:  make(chan interface{}),
-
-		Config: config.Config{
+		config: config.Config{
 			PingInterval:              25 * time.Second,
 			PingTimeout:               60 * time.Second,
 			Transports:                []string{transport.PollingType, transport.WebsocketType},
@@ -89,13 +86,18 @@ func (server *Server) Send(id string, binary bool, data []byte) error {
 	return session.Send(packet.NewMessage(binary, data))
 }
 
-// SetLogger initializes logging with a specific implementation
-func (server *Server) SetLogger(loggerInstance logger.Logger) {
-	logger.Init(loggerInstance)
+// Configure alters the server configuration for future sessions
+func (server *Server) Configure(options ...Option) {
+	server.Lock()
+	defer server.Unlock()
+
+	for _, option := range options {
+		option(&server.config)
+	}
 }
 
 func (server *Server) checkPing() {
-	interval := server.PingInterval + server.PingTimeout
+	interval := server.config.PingInterval + server.config.PingTimeout
 
 	for {
 		time.Sleep(interval)
@@ -115,11 +117,10 @@ func (server *Server) checkPing() {
 }
 
 func (server *Server) createSession(params url.Values) *Session {
-	session := NewSession(server.Config, server.events)
-
 	server.Lock()
 	defer server.Unlock()
 
+	session := NewSession(server.config, server.events)
 	server.clients[session.ID()] = session
 
 	return session
